@@ -30,9 +30,28 @@ test("builds validated deterministic plugin releases and catalog", async () => {
       "request_termux_run_command_permission",
       "prepare_persistent_termux",
       "start_wuxianpi_setup",
+      "termux_exec_command",
       "get_wuxianpi_setup_status"
     ]);
-    assert.ok(workflow.steps.filter((step: Record<string, unknown>) => step.kind === "tool").every((step: Record<string, unknown>) => allowed.has(String(step.tool))));
+    const toolSteps = workflow.steps.filter((step: Record<string, unknown>) => typeof step.tool === "string");
+    assert.ok(toolSteps.every((step: Record<string, unknown>) => allowed.has(String(step.tool))));
+    assert.equal(toolSteps.length, allowed.size);
+    const stageSetup = workflow.steps.find((step: Record<string, unknown>) => step.id === "stage-setup");
+    const runSetup = workflow.steps.find((step: Record<string, unknown>) => step.id === "run-setup");
+    const verify = workflow.steps.find((step: Record<string, unknown>) => step.id === "verify");
+    assert.deepEqual(
+      { kind: stageSetup.kind, tool: stageSetup.tool },
+      { kind: "tool", tool: "start_wuxianpi_setup" }
+    );
+    assert.deepEqual(
+      { kind: runSetup.kind, tool: runSetup.tool, sourceStep: runSetup.sourceStep },
+      { kind: "tool-from-result", tool: "termux_exec_command", sourceStep: "stage-setup" }
+    );
+    assert.deepEqual(
+      { kind: verify.kind, tool: verify.tool },
+      { kind: "poll-tool", tool: "get_wuxianpi_setup_status" }
+    );
+    assert.match(String(runSetup.description), /command、session_name 和 yield_time_ms/);
     assert.equal(workflow.executionPolicy.afterPersistentTermux, "termux_exec_command");
     assert.equal(workflow.executionPolicy.longRunningCommands, "termux_exec_command");
   } finally {

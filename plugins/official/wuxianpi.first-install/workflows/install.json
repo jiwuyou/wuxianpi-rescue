@@ -42,21 +42,23 @@
       "description": "先测试软件源，再安装 tmux 的最小前置依赖并建立持久终端。"
     },
     {
-      "id": "install",
+      "id": "stage-setup",
       "kind": "tool",
       "tool": "start_wuxianpi_setup",
-      "arguments": {
-        "executionBackend": "termux_exec_command",
-        "components": ["service-manager", "wuxianpi", "ubuntu"],
-        "skipOptional": ["aionui"]
-      },
-      "description": "通过持久 Termux 终端转移安装载荷并运行支持地区或镜像参数的一键安装器。"
+      "description": "转移安装载荷并返回前台安装所需的 command、session_name 和 yield_time_ms。"
+    },
+    {
+      "id": "run-setup",
+      "kind": "tool-from-result",
+      "tool": "termux_exec_command",
+      "sourceStep": "stage-setup",
+      "description": "使用 stage-setup 返回的 command、session_name 和 yield_time_ms 启动持久安装任务。"
     },
     {
       "id": "verify",
-      "kind": "tool",
+      "kind": "poll-tool",
       "tool": "get_wuxianpi_setup_status",
-      "description": "验证 service-manager、WuxianPi、Ubuntu、端口、模型接口和终端能力。"
+      "description": "轮询安装状态，直到完成或返回可操作失败，并验证 service-manager、WuxianPi、Ubuntu、端口、模型接口和终端能力。"
     }
   ]
 }
