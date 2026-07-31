@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://wuxianpi.webefficacy.com/schemas/plugin-comment-v1.json",
+  "$id": "https://wuxianpirescue.webefficacy.com/schemas/plugin-comment-v1.json",
   "title": "WuxianPi Plugin Comment v1",
   "type": "object",
   "additionalProperties": false,

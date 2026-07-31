@@ -3,9 +3,9 @@ const state = {
   selected: null,
   release: null,
   query: "",
-  clientId: localStorage.getItem("wuxianpi-hub-client-id") || crypto.randomUUID()
+  clientId: localStorage.getItem("wuxianpi-rescue-client-id") || crypto.randomUUID()
 };
-localStorage.setItem("wuxianpi-hub-client-id", state.clientId);
+localStorage.setItem("wuxianpi-rescue-client-id", state.clientId);
 
 const list = document.querySelector("#plugin-list");
 const detail = document.querySelector("#detail");

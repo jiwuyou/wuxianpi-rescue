@@ -80,7 +80,7 @@ export class McpHandler {
       return result(request.id, {
         protocolVersion: "2025-03-26",
         capabilities: { tools: { listChanged: false } },
-        serverInfo: { name: "wuxianpi-hub", version: "0.1.0" }
+        serverInfo: { name: "wuxianpi-rescue", version: "0.1.0" }
       });
     }
     if (request.method === "tools/list") return result(request.id, { tools });

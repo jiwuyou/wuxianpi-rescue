@@ -1,9 +1,9 @@
 #!/bin/sh
 set -eu
 
-COMPOSE_FILE="${COMPOSE_FILE:-/opt/wuxianpi-hub/deploy/docker-compose.yml}"
-DATA_DIR="${DATA_DIR:-/var/lib/wuxianpi-hub}"
-BACKUP_DIR="${BACKUP_DIR:-/var/backups/wuxianpi-hub}"
+COMPOSE_FILE="${COMPOSE_FILE:-/opt/wuxianpi-rescue/deploy/docker-compose.yml}"
+DATA_DIR="${DATA_DIR:-/var/lib/wuxianpi-rescue}"
+BACKUP_DIR="${BACKUP_DIR:-/var/backups/wuxianpi-rescue}"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 
 mkdir -p "$BACKUP_DIR"

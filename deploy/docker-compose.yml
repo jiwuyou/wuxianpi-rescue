@@ -1,11 +1,11 @@
-name: wuxianpi-hub
+name: wuxianpi-rescue
 
 services:
-  hub:
+  rescue:
     build:
       context: ..
       dockerfile: Dockerfile
-    container_name: wuxianpi-hub
+    container_name: wuxianpi-rescue
     restart: unless-stopped
     environment:
       HOST: 0.0.0.0
@@ -14,7 +14,7 @@ services:
     ports:
       - "127.0.0.1:20877:20877"
     volumes:
-      - /var/lib/wuxianpi-hub:/data
+      - /var/lib/wuxianpi-rescue:/data
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:20877/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 30s

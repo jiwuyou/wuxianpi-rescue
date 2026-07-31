@@ -272,5 +272,5 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     databasePath: process.env.DATABASE_PATH
   });
   const address = await instance.start();
-  process.stdout.write(`WuxianPi Hub listening on http://${address.host}:${address.port}\n`);
+  process.stdout.write(`WuxianPi Rescue listening on http://${address.host}:${address.port}\n`);
 }

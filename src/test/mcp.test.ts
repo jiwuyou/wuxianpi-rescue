@@ -25,7 +25,7 @@ test("implements initialize, tools/list and tools/call over HTTP", async () => {
 
   try {
     const initialized = await call({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} });
-    assert.equal(initialized.payload.result.serverInfo.name, "wuxianpi-hub");
+    assert.equal(initialized.payload.result.serverInfo.name, "wuxianpi-rescue");
     assert.ok(initialized.response.headers.get("mcp-session-id"));
 
     const listed = await call({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} });

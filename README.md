@@ -1,6 +1,6 @@
-# WuxianPi Hub
+# WuxianPi Rescue
 
-WuxianPi Hub 是救援插件、在线文档、版本评论和 Support MCP 的独立服务。首版由一个 Node 22 进程提供市场网站、HTTP API、静态插件包、SQLite 评论和 MCP。
+WuxianPi Rescue 是救援插件、在线文档、版本评论和 Support MCP 的独立服务。首版由一个 Node 22 进程提供维修市场网站、HTTP API、静态插件包、SQLite 评论和 MCP。
 
 ## 本地运行
 
@@ -65,18 +65,18 @@ MCP 支持 `initialize`、`tools/list` 和 `tools/call`，提供：
 ## Docker 部署
 
 ```bash
-git clone https://github.com/jiwuyou/wuxianpi-hub.git /opt/wuxianpi-hub
-mkdir -p /var/lib/wuxianpi-hub
-docker compose -f /opt/wuxianpi-hub/deploy/docker-compose.yml up -d --build
+git clone https://github.com/jiwuyou/wuxianpi-rescue.git /opt/wuxianpi-rescue
+mkdir -p /var/lib/wuxianpi-rescue
+docker compose -f /opt/wuxianpi-rescue/deploy/docker-compose.yml up -d --build
 ```
 
-Compose 只把服务发布到宿主 `127.0.0.1:20877`。复制 `deploy/nginx-wuxianpi.conf` 到独立 Nginx vhost，申请证书后执行 `nginx -t` 并 reload。
+Compose 只把服务发布到宿主 `127.0.0.1:20877`。复制 `deploy/nginx-wuxianpi-rescue.conf` 到独立 Nginx vhost，申请证书后执行 `nginx -t` 并 reload。
 
-备份脚本会短暂停止 Hub，复制一致的 SQLite 数据库，然后恢复容器：
+备份脚本会短暂停止 Rescue 服务，复制一致的 SQLite 数据库，然后恢复容器：
 
 ```bash
-install -m 0755 deploy/backup-comments.sh /usr/local/sbin/wuxianpi-hub-backup
-/usr/local/sbin/wuxianpi-hub-backup
+install -m 0755 deploy/backup-comments.sh /usr/local/sbin/wuxianpi-rescue-backup
+/usr/local/sbin/wuxianpi-rescue-backup
 ```
 
 可通过系统定时器或 cron 每日调用，默认保留 30 天。
