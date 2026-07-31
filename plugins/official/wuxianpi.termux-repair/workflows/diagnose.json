@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "id": "wuxianpi.termux-repair.diagnose",
+  "title": "诊断 Termux",
+  "steps": [
+    { "id": "inspect", "kind": "tool", "tool": "inspect_wuxianpi_setup" },
+    { "id": "prepare", "kind": "tool", "tool": "prepare_persistent_termux" },
+    { "id": "verify", "kind": "tool", "tool": "get_wuxianpi_setup_status" }
+  ]
+}

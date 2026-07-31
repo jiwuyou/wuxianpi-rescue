@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "id": "wuxianpi.ubuntu.check",
+  "title": "检查 Ubuntu",
+  "steps": [
+    { "id": "inspect", "kind": "tool", "tool": "inspect_wuxianpi_setup" },
+    { "id": "status", "kind": "tool", "tool": "get_wuxianpi_setup_status" }
+  ]
+}

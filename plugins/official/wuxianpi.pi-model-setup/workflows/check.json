@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "id": "wuxianpi.pi-model-setup.check",
+  "title": "检查 Pi 模型配置",
+  "steps": [
+    { "id": "status", "kind": "tool", "tool": "get_wuxianpi_setup_status" },
+    { "id": "guide", "kind": "document", "path": "docs/guide.md" }
+  ]
+}

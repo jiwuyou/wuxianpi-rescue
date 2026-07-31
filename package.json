@@ -1,0 +1,21 @@
+{
+  "name": "wuxianpi-hub",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "build": "tsc && node dist/build-plugins.js",
+    "build:plugins": "node dist/build-plugins.js",
+    "check": "tsc --noEmit",
+    "dev": "npm run build && node --watch dist/server.js",
+    "start": "node dist/server.js",
+    "test": "npm run build && node --test --test-concurrency=1 dist/test/*.test.js"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "typescript": "^5.8.3"
+  }
+}

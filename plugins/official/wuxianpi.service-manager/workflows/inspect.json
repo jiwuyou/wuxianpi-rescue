@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "id": "wuxianpi.service-manager.inspect",
+  "title": "检查服务状态",
+  "steps": [
+    { "id": "inspect", "kind": "tool", "tool": "inspect_wuxianpi_setup" },
+    { "id": "status", "kind": "tool", "tool": "get_wuxianpi_setup_status" }
+  ]
+}

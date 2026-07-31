@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "wuxianpi.pi-model-setup",
+  "version": "1.0.0",
+  "name": "Pi 模型配置",
+  "description": "配置、发现和测试 Pi 模型，并排查多配置与会话绑定问题。",
+  "category": "configuration",
+  "minHostVersion": 12,
+  "requiredCapabilities": ["pi-model-api"],
+  "tags": ["模型", "Provider", "Pi"],
+  "entryWorkflow": "workflows/check.json",
+  "documents": [
+    { "path": "docs/guide.md", "title": "Pi 模型配置指南" }
+  ]
+}

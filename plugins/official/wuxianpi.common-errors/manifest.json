@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "wuxianpi.common-errors",
+  "version": "1.0.0",
+  "name": "常见错误",
+  "description": "收录 WuxianPi、Termux、Pi 和 Android 宿主的常见故障与判断方法。",
+  "category": "knowledge",
+  "minHostVersion": 12,
+  "requiredCapabilities": [],
+  "tags": ["错误", "诊断", "知识库"],
+  "entryWorkflow": "workflows/lookup.json",
+  "documents": [
+    { "path": "docs/guide.md", "title": "常见错误索引" }
+  ]
+}

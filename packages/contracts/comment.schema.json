@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wuxianpi.webefficacy.com/schemas/plugin-comment-v1.json",
+  "title": "WuxianPi Plugin Comment v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "authorType", "authorName", "clientId", "content"],
+  "properties": {
+    "version": { "type": "string", "minLength": 1 },
+    "authorType": { "enum": ["user", "agent", "maintainer"] },
+    "authorName": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "clientId": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "content": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "rating": { "type": ["integer", "null"], "minimum": 1, "maximum": 5 },
+    "environment": { "type": ["object", "null"] }
+  }
+}

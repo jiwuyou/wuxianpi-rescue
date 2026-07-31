@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#176b56">
+    <title>WuxianPi Hub</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <strong>WuxianPi Hub</strong>
+        <span id="revision">正在连接</span>
+      </div>
+      <label class="search">
+        <span>搜索</span>
+        <input id="search" type="search" placeholder="插件、能力或问题">
+      </label>
+    </header>
+
+    <main class="workspace">
+      <aside class="catalog-pane">
+        <div class="pane-title">
+          <h1>救援插件</h1>
+          <span id="plugin-count">0</span>
+        </div>
+        <div id="plugin-list" class="plugin-list" aria-live="polite"></div>
+      </aside>
+
+      <section id="detail" class="detail-pane">
+        <div class="empty-state">
+          <h2>选择一个插件</h2>
+          <p>查看版本、文档、下载校验和实测评论。</p>
+        </div>
+      </section>
+    </main>
+
+    <template id="plugin-item-template">
+      <button class="plugin-item" type="button">
+        <span class="plugin-item-title"></span>
+        <span class="plugin-item-description"></span>
+        <span class="plugin-item-meta"></span>
+      </button>
+    </template>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

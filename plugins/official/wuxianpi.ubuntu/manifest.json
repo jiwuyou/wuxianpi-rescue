@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "wuxianpi.ubuntu",
+  "version": "1.0.0",
+  "name": "Ubuntu 环境",
+  "description": "安装和诊断 Termux proot-distro Ubuntu 环境。",
+  "category": "runtime",
+  "minHostVersion": 12,
+  "requiredCapabilities": ["termux", "ubuntu"],
+  "tags": ["Ubuntu", "proot-distro"],
+  "entryWorkflow": "workflows/check.json",
+  "documents": [
+    { "path": "docs/guide.md", "title": "Ubuntu 环境指南" }
+  ]
+}

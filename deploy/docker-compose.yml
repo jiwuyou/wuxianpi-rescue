@@ -1,0 +1,21 @@
+services:
+  hub:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: wuxianpi-hub
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      PORT: 20877
+      DATABASE_PATH: /data/comments.db
+    ports:
+      - "127.0.0.1:20877:20877"
+    volumes:
+      - /var/lib/wuxianpi-hub:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:20877/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

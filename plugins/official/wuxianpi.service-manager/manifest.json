@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "wuxianpi.service-manager",
+  "version": "1.0.0",
+  "name": "service-manager 维修",
+  "description": "检查服务安装、生命周期、日志轮转和系统端口分配。",
+  "category": "repair",
+  "minHostVersion": 12,
+  "requiredCapabilities": ["service-manager"],
+  "tags": ["服务", "日志", "端口"],
+  "entryWorkflow": "workflows/inspect.json",
+  "documents": [
+    { "path": "docs/guide.md", "title": "service-manager 检查指南" }
+  ]
+}

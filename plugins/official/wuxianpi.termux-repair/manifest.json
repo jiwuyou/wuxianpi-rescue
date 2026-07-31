@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "wuxianpi.termux-repair",
+  "version": "1.0.0",
+  "name": "Termux 修复",
+  "description": "诊断 SAF、RUN_COMMAND、软件源、tmux 和持久终端问题。",
+  "category": "repair",
+  "minHostVersion": 12,
+  "requiredCapabilities": ["termux", "persistent-terminal"],
+  "tags": ["Termux", "tmux", "权限"],
+  "entryWorkflow": "workflows/diagnose.json",
+  "documents": [
+    { "path": "docs/guide.md", "title": "Termux 故障排查" }
+  ]
+}

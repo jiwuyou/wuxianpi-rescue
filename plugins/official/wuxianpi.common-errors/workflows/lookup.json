@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "id": "wuxianpi.common-errors.lookup",
+  "title": "查阅常见错误",
+  "steps": [
+    { "id": "guide", "kind": "document", "path": "docs/guide.md" }
+  ]
+}
