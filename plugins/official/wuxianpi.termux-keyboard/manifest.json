@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "wuxianpi.termux-keyboard",
+  "version": "1.0.0",
+  "name": "Termux 键盘配置",
+  "description": "为 Termux 应用、移除或完整恢复 WuxianPi 推荐的额外按键配置。",
+  "category": "termux",
+  "minHostVersion": 12,
+  "requiredCapabilities": ["termux", "persistent-terminal"],
+  "tags": ["Termux", "键盘", "extra-keys", "恢复"],
+  "entryWorkflow": "workflows/apply.json",
+  "documents": [
+    { "path": "docs/guide.md", "title": "Termux 键盘配置指南" },
+    { "path": "scripts/termux-keyboard.sh", "title": "Termux 键盘配置脚本" }
+  ]
+}

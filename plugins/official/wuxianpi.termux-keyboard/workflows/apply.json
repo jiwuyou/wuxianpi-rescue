@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "id": "wuxianpi.termux-keyboard.apply",
+  "title": "应用 WuxianPi Termux 键盘配置",
+  "executionPolicy": {
+    "termuxCommands": "termux_exec_command",
+    "longRunningCommands": "termux_exec_command"
+  },
+  "steps": [
+    {
+      "id": "read-script",
+      "kind": "tool",
+      "tool": "read_rescue_plugin_document",
+      "arguments": {
+        "pluginId": "wuxianpi.termux-keyboard",
+        "path": "scripts/termux-keyboard.sh"
+      },
+      "description": "读取当前已安装插件中的脚本正文，不要自行重写脚本。"
+    },
+    {
+      "id": "prepare-directory",
+      "kind": "tool",
+      "tool": "termux_exec_command",
+      "arguments": {
+        "command": "mkdir -p \"$HOME/.local/share/wuxianpi/plugins/termux-keyboard\"",
+        "working_directory": "$HOME",
+        "session_name": "wuxianpi-termux-keyboard-prepare",
+        "yield_time_ms": 1000
+      },
+      "description": "在 SAF write_file 前通过持久 Termux 终端创建目标父目录。"
+    },
+    {
+      "id": "write-script",
+      "kind": "tool-from-result",
+      "tool": "write_file",
+      "sourceStep": "read-script",
+      "arguments": {
+        "environment": "repo:termux-home",
+        "path": ".local/share/wuxianpi/plugins/termux-keyboard/termux-keyboard.sh",
+        "content": "{{steps.read-script.content}}"
+      },
+      "description": "将 read-script 返回的 content 原样写入 ~/.local/share/wuxianpi/plugins/termux-keyboard/termux-keyboard.sh。"
+    },
+    {
+      "id": "apply",
+      "kind": "tool",
+      "tool": "termux_exec_command",
+      "arguments": {
+        "command": "mkdir -p \"$HOME/.local/share/wuxianpi/plugins/termux-keyboard\" && chmod 700 \"$HOME/.local/share/wuxianpi/plugins/termux-keyboard/termux-keyboard.sh\" && \"$HOME/.local/share/wuxianpi/plugins/termux-keyboard/termux-keyboard.sh\" apply",
+        "working_directory": "$HOME",
+        "session_name": "wuxianpi-termux-keyboard-apply",
+        "yield_time_ms": 1000
+      },
+      "description": "只通过持久 Termux 终端设置权限并应用配置。"
+    },
+    {
+      "id": "verify",
+      "kind": "tool",
+      "tool": "termux_exec_command",
+      "arguments": {
+        "command": "\"$HOME/.local/share/wuxianpi/plugins/termux-keyboard/termux-keyboard.sh\" status",
+        "working_directory": "$HOME",
+        "session_name": "wuxianpi-termux-keyboard-status",
+        "yield_time_ms": 1000
+      },
+      "description": "读取 status 输出，只有脚本明确报告配置已应用时才向用户报告成功。"
+    }
+  ]
+}

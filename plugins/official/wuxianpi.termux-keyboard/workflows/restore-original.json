@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "id": "wuxianpi.termux-keyboard.restore-original",
+  "title": "完整恢复 Termux 原始键盘配置",
+  "executionPolicy": {
+    "termuxCommands": "termux_exec_command",
+    "longRunningCommands": "termux_exec_command",
+    "destructiveActionConfirmation": "required"
+  },
+  "steps": [
+    {
+      "id": "read-script",
+      "kind": "tool",
+      "tool": "read_rescue_plugin_document",
+      "arguments": {
+        "pluginId": "wuxianpi.termux-keyboard",
+        "path": "scripts/termux-keyboard.sh"
+      },
+      "description": "读取当前已安装插件中的脚本正文，不要自行重写脚本。"
+    },
+    {
+      "id": "prepare-directory",
+      "kind": "tool",
+      "tool": "termux_exec_command",
+      "arguments": {
+        "command": "mkdir -p \"$HOME/.local/share/wuxianpi/plugins/termux-keyboard\"",
+        "working_directory": "$HOME",
+        "session_name": "wuxianpi-termux-keyboard-prepare",
+        "yield_time_ms": 1000
+      },
+      "description": "在 SAF write_file 前通过持久 Termux 终端创建目标父目录。"
+    },
+    {
+      "id": "write-script",
+      "kind": "tool-from-result",
+      "tool": "write_file",
+      "sourceStep": "read-script",
+      "arguments": {
+        "environment": "repo:termux-home",
+        "path": ".local/share/wuxianpi/plugins/termux-keyboard/termux-keyboard.sh",
+        "content": "{{steps.read-script.content}}"
+      },
+      "description": "将 read-script 返回的 content 原样写入 ~/.local/share/wuxianpi/plugins/termux-keyboard/termux-keyboard.sh。"
+    },
+    {
+      "id": "confirm-full-restore",
+      "kind": "user-confirmation",
+      "required": true,
+      "description": "完整恢复可能覆盖或移除用户现有的 Termux extra-keys 自定义配置。必须先向用户明确说明影响，并获得用户对“完整恢复原始配置”的显式确认；未确认、含糊回答或仅要求移除 WuxianPi 配置时都必须停止，绝不能执行下一步。"
+    },
+    {
+      "id": "restore-original",
+      "kind": "tool",
+      "tool": "termux_exec_command",
+      "requires": "confirm-full-restore.confirmed == true",
+      "arguments": {
+        "command": "mkdir -p \"$HOME/.local/share/wuxianpi/plugins/termux-keyboard\" && chmod 700 \"$HOME/.local/share/wuxianpi/plugins/termux-keyboard/termux-keyboard.sh\" && \"$HOME/.local/share/wuxianpi/plugins/termux-keyboard/termux-keyboard.sh\" restore-original --confirm",
+        "working_directory": "$HOME",
+        "session_name": "wuxianpi-termux-keyboard-restore",
+        "yield_time_ms": 1000
+      },
+      "description": "仅在 confirm-full-restore 已获得明确肯定答复后，通过持久 Termux 终端执行完整恢复。"
+    },
+    {
+      "id": "verify",
+      "kind": "tool",
+      "tool": "termux_exec_command",
+      "requires": "confirm-full-restore.confirmed == true",
+      "arguments": {
+        "command": "\"$HOME/.local/share/wuxianpi/plugins/termux-keyboard/termux-keyboard.sh\" status",
+        "working_directory": "$HOME",
+        "session_name": "wuxianpi-termux-keyboard-status",
+        "yield_time_ms": 1000
+      },
+      "description": "读取 status 输出，确认原始状态已恢复；不能只根据命令启动成功就宣称完成。"
+    }
+  ]
+}

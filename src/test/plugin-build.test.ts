@@ -14,7 +14,7 @@ test("builds validated deterministic plugin releases and catalog", async () => {
   const temporary = await mkdtemp(path.join(os.tmpdir(), "wuxianpi-plugin-build-"));
   try {
     const catalog = await buildPlugins(path.join(ROOT, "plugins", "official"), temporary);
-    assert.equal(catalog.plugins.length, 6);
+    assert.equal(catalog.plugins.length, 7);
     const firstInstall = catalog.plugins.find((plugin) => plugin.id === "wuxianpi.first-install");
     assert.ok(firstInstall);
     const release = firstInstall.versions[0];
@@ -54,6 +54,19 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     assert.match(String(runSetup.description), /command、session_name 和 yield_time_ms/);
     assert.equal(workflow.executionPolicy.afterPersistentTermux, "termux_exec_command");
     assert.equal(workflow.executionPolicy.longRunningCommands, "termux_exec_command");
+
+    const keyboard = catalog.plugins.find((plugin) => plugin.id === "wuxianpi.termux-keyboard");
+    assert.ok(keyboard);
+    const keyboardRelease = keyboard.versions[0];
+    assert.deepEqual(
+      keyboardRelease.workflows,
+      [
+        "workflows/apply.json",
+        "workflows/remove.json",
+        "workflows/restore-original.json"
+      ]
+    );
+    assert.ok(keyboardRelease.documents.some((document) => document.path === "scripts/termux-keyboard.sh"));
   } finally {
     await rm(temporary, { recursive: true, force: true });
   }
