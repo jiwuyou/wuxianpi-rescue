@@ -3,7 +3,7 @@
   "id": "wuxianpi.termux-repair",
   "version": "1.0.0",
   "name": "Termux 修复",
-  "description": "诊断 SAF、RUN_COMMAND、软件源、tmux 和持久终端问题。",
+  "description": "诊断 Termux 权限与持久终端，并核对 termux-services 的 service-manager 常驻链路。",
   "category": "repair",
   "minHostVersion": 12,
   "requiredCapabilities": ["termux", "persistent-terminal"],

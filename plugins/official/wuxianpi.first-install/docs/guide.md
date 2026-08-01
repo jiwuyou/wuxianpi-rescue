@@ -17,7 +17,16 @@
 6. 安装 tmux，建立持久 Termux 终端。
 7. tmux 准备后，所有长命令和后续诊断使用 `termux_exec_command`。
 8. 将 APK 随附资源转移到 Termux，运行可重复的一键安装器。
-9. 安装 service-manager、WuxianPi 和 Ubuntu；暂不安装 AionUI 等可选组件。
-10. 检查服务、端口、模型 API、Web UI 和终端工具。
+9. 安装 `termux-services`，显式执行 `service-daemon start`，检查 `runsvdir`、`sv status service-manager` 和 `127.0.0.1:20087`。
+10. 安装并注册 service-manager、WuxianPi 和 Ubuntu；暂不安装 AionUI 等可选组件。
+11. WuxianPi 注册为 `yuanshengwuxianpi`，固定使用 `127.0.0.1:20765`，但安装时不默认启动，也不设为常驻。
+12. 检查终端工具、service-manager 常驻链路、WuxianPi 服务声明和 Ubuntu。只有明确测试模型或打开 WuxianPi 时才按需启动 WuxianPi。
+
+## 服务生命周期
+
+- 只有 service-manager 由 `termux-services` 长期托管。
+- `yuanshengwuxianpi` 的 `residentByDefault` 为 `false`，`restart.mode` 为 `on-failure`。
+- WuxianPi 显示 `stopped` 是正常的按需状态，不代表安装损坏。
+- tmux 只承载安装、升级和维修任务；tmux 会话不是正式服务的生命周期所有者。
 
 安装中断后可以直接再次启动本工作流。

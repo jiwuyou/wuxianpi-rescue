@@ -3,7 +3,7 @@
   "id": "wuxianpi.first-install",
   "version": "1.0.0",
   "name": "首次安装",
-  "description": "检查真实环境并引导完成 Termux、持久终端、service-manager、WuxianPi 与 Ubuntu 初始化。",
+  "description": "检查真实环境并完成 Termux、service-manager 常驻链路、按需 WuxianPi 与 Ubuntu 初始化。",
   "category": "setup",
   "minHostVersion": 12,
   "requiredCapabilities": ["setup-tools", "termux", "persistent-terminal"],

@@ -54,6 +54,23 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     assert.match(String(runSetup.description), /command、session_name 和 yield_time_ms/);
     assert.equal(workflow.executionPolicy.afterPersistentTermux, "termux_exec_command");
     assert.equal(workflow.executionPolicy.longRunningCommands, "termux_exec_command");
+    assert.match(String(verify.description), /service-daemon/);
+    assert.match(String(verify.description), /WuxianPi stopped 是正常按需状态/);
+
+    const firstInstallGuide = await readFile(
+      path.join(ROOT, "plugins", "official", firstInstall.id, "docs", "guide.md"),
+      "utf8"
+    );
+    assert.match(firstInstallGuide, /residentByDefault.*false/);
+    assert.match(firstInstallGuide, /tmux.*不是正式服务的生命周期所有者/);
+
+    const serviceManagerGuide = await readFile(
+      path.join(ROOT, "plugins", "official", "wuxianpi.service-manager", "docs", "guide.md"),
+      "utf8"
+    );
+    assert.match(serviceManagerGuide, /sv status/);
+    assert.match(serviceManagerGuide, /127\.0\.0\.1:20087/);
+    assert.match(serviceManagerGuide, /`stopped` 是正常闲置状态/);
 
     const keyboard = catalog.plugins.find((plugin) => plugin.id === "wuxianpi.termux-keyboard");
     assert.ok(keyboard);

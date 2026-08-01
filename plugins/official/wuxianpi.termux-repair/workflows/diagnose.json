@@ -4,7 +4,7 @@
   "title": "诊断 Termux",
   "steps": [
     { "id": "inspect", "kind": "tool", "tool": "inspect_wuxianpi_setup" },
-    { "id": "prepare", "kind": "tool", "tool": "prepare_persistent_termux" },
-    { "id": "verify", "kind": "tool", "tool": "get_wuxianpi_setup_status" }
+    { "id": "prepare", "kind": "tool", "tool": "prepare_persistent_termux", "description": "准备 tmux 持久命令终端；它不承载正式服务。" },
+    { "id": "verify", "kind": "tool", "tool": "get_wuxianpi_setup_status", "description": "检查 service-daemon、runsvdir、sv status service-manager 和 20087；忽略 WuxianPi 的正常 stopped 状态。" }
   ]
 }

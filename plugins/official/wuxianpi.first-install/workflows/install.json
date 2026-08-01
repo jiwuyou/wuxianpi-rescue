@@ -45,7 +45,7 @@
       "id": "stage-setup",
       "kind": "tool",
       "tool": "start_wuxianpi_setup",
-      "description": "转移安装载荷并返回前台安装所需的 command、session_name 和 yield_time_ms。"
+      "description": "转移安装载荷，安装 termux-services、service-manager、WuxianPi 与 Ubuntu，并返回前台安装所需的 command、session_name 和 yield_time_ms；WuxianPi 只注册不默认启动。"
     },
     {
       "id": "run-setup",
@@ -58,7 +58,7 @@
       "id": "verify",
       "kind": "poll-tool",
       "tool": "get_wuxianpi_setup_status",
-      "description": "轮询安装状态，直到完成或返回可操作失败，并验证 service-manager、WuxianPi、Ubuntu、端口、模型接口和终端能力。"
+      "description": "轮询安装状态，并检查 service-daemon、runsvdir、sv status service-manager、20087、WuxianPi 服务声明、Ubuntu 和终端能力；WuxianPi stopped 是正常按需状态。"
     }
   ]
 }

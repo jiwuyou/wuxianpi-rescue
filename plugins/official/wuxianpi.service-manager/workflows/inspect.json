@@ -3,7 +3,7 @@
   "id": "wuxianpi.service-manager.inspect",
   "title": "检查服务状态",
   "steps": [
-    { "id": "inspect", "kind": "tool", "tool": "inspect_wuxianpi_setup" },
-    { "id": "status", "kind": "tool", "tool": "get_wuxianpi_setup_status" }
+    { "id": "inspect", "kind": "tool", "tool": "inspect_wuxianpi_setup", "description": "检查 service-daemon、runsvdir、sv、service-manager 定义以及 WuxianPi 按需服务声明。" },
+    { "id": "status", "kind": "tool", "tool": "get_wuxianpi_setup_status", "description": "确认 sv status service-manager 和 20087；yuanshengwuxianpi 为 stopped 时按正常闲置报告。" }
   ]
 }
