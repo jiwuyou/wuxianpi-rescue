@@ -5,6 +5,11 @@ export interface ZipEntry {
   data: Buffer;
 }
 
+export function compareCodeUnitStrings(left: string, right: string): number {
+  if (left === right) return 0;
+  return left < right ? -1 : 1;
+}
+
 const CRC_TABLE = Array.from({ length: 256 }, (_, index) => {
   let value = index;
   for (let bit = 0; bit < 8; bit += 1) value = (value & 1) !== 0 ? 0xedb88320 ^ (value >>> 1) : value >>> 1;
@@ -55,7 +60,7 @@ export function createZip(entries: ZipEntry[]): Buffer {
   const centralParts: Buffer[] = [];
   let offset = 0;
 
-  for (const entry of [...entries].sort((a, b) => a.path.localeCompare(b.path))) {
+  for (const entry of [...entries].sort((a, b) => compareCodeUnitStrings(a.path, b.path))) {
     const name = Buffer.from(entry.path, "utf8");
     const crc = crc32(entry.data);
     const local = localHeader(name, entry.data, crc);

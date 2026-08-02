@@ -66,6 +66,16 @@ export interface CommentRecord {
   createdAt: string;
 }
 
+interface SemanticVersion {
+  major: string;
+  minor: string;
+  patch: string;
+  preRelease: string[] | null;
+}
+
+const STRICT_SEMVER =
+  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -88,6 +98,37 @@ function stringArray(value: unknown, field: string): asserts value is string[] {
   }
 }
 
+function parseSemanticVersion(value: string): SemanticVersion {
+  const normalized = value.trim();
+  const match = STRICT_SEMVER.exec(normalized);
+  if (!match) throw new Error(`Version is not strict SemVer: ${value}`);
+  return {
+    major: match[1],
+    minor: match[2],
+    patch: match[3],
+    preRelease: match[4] ? match[4].split(".") : null
+  };
+}
+
+function compareText(left: string, right: string): number {
+  if (left === right) return 0;
+  return left < right ? -1 : 1;
+}
+
+function compareNumeric(left: string, right: string): number {
+  if (left.length !== right.length) return left.length < right.length ? -1 : 1;
+  return compareText(left, right);
+}
+
+function comparePreReleaseIdentifier(left: string, right: string): number {
+  const leftNumeric = /^\d+$/.test(left);
+  const rightNumeric = /^\d+$/.test(right);
+  if (leftNumeric && rightNumeric) return compareNumeric(left, right);
+  if (leftNumeric) return -1;
+  if (rightNumeric) return 1;
+  return compareText(left, right);
+}
+
 export function validateManifest(input: unknown): PluginManifest {
   if (!isRecord(input)) throw new Error("manifest must be an object");
   if (input.schemaVersion !== PLUGIN_SCHEMA_VERSION) throw new Error("unsupported plugin schemaVersion");
@@ -95,7 +136,8 @@ export function validateManifest(input: unknown): PluginManifest {
   requiredString(input.id, "id");
   if (!/^[a-z0-9]+(?:[.-][a-z0-9]+)*$/.test(input.id)) throw new Error("id has an invalid format");
   requiredString(input.version, "version");
-  if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(input.version)) throw new Error("version must be semantic");
+  const version = input.version.trim();
+  parseSemanticVersion(version);
   requiredString(input.name, "name");
   requiredString(input.description, "description");
   requiredString(input.category, "category");
@@ -124,7 +166,7 @@ export function validateManifest(input: unknown): PluginManifest {
   return {
     schemaVersion: PLUGIN_SCHEMA_VERSION,
     id: input.id,
-    version: input.version,
+    version,
     name: input.name,
     description: input.description,
     category: input.category,
@@ -137,13 +179,24 @@ export function validateManifest(input: unknown): PluginManifest {
 }
 
 export function compareVersions(left: string, right: string): number {
-  const parse = (value: string) => value.split("-")[0].split(".").map(Number);
-  const a = parse(left);
-  const b = parse(right);
-  for (let index = 0; index < 3; index += 1) {
-    if (a[index] !== b[index]) return a[index] - b[index];
+  const leftVersion = parseSemanticVersion(left);
+  const rightVersion = parseSemanticVersion(right);
+  for (const field of ["major", "minor", "patch"] as const) {
+    const comparison = compareNumeric(leftVersion[field], rightVersion[field]);
+    if (comparison !== 0) return comparison;
   }
-  return left.localeCompare(right);
+
+  if (!leftVersion.preRelease) return rightVersion.preRelease ? 1 : 0;
+  if (!rightVersion.preRelease) return -1;
+  const sharedSize = Math.min(leftVersion.preRelease.length, rightVersion.preRelease.length);
+  for (let index = 0; index < sharedSize; index += 1) {
+    const comparison = comparePreReleaseIdentifier(
+      leftVersion.preRelease[index],
+      rightVersion.preRelease[index]
+    );
+    if (comparison !== 0) return comparison;
+  }
+  return leftVersion.preRelease.length - rightVersion.preRelease.length;
 }
 
 export function isAuthorType(value: unknown): value is AuthorType {

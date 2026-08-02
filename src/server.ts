@@ -205,7 +205,7 @@ export async function createHubServer(options: HubServerOptions = {}): Promise<{
         return;
       }
 
-      const downloadMatch = pathname.match(/^\/plugins\/([a-z0-9.-]+)\/(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)\.zip$/);
+      const downloadMatch = pathname.match(/^\/plugins\/([a-z0-9.-]+)\/([0-9A-Za-z.+-]+)\.zip$/);
       if (request.method === "GET" && downloadMatch) {
         if (!await catalog.getRelease(downloadMatch[1], downloadMatch[2])) return json(response, 404, { error: "plugin release not found" });
         await streamFile(response, path.join(publicDirectory, "plugins", downloadMatch[1], `${downloadMatch[2]}.zip`));

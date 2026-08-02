@@ -20,7 +20,11 @@ npm start
 2. 拒绝符号链接及不安全路径；
 3. 生成确定性 ZIP；
 4. 计算 SHA-256；
-5. 生成 `public/catalog.json`。
+5. 保留 `public` 中已有的历史版本和 ZIP；
+6. 拒绝覆盖内容或 SHA-256 已变化的同版本发布；
+7. 按 SemVer 稳定排序并生成 `public/catalog.json`。
+
+插件发布后不可覆盖同一版本。内容有任何变化都必须递增 `manifest.json` 的 `version`；完全相同的重复构建可以通过。
 
 ```bash
 npm run build

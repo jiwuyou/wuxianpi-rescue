@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { buildPlugins } from "../build-plugins.js";
 import { validateManifest } from "../contracts.js";
 
@@ -17,7 +18,16 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     assert.equal(catalog.plugins.length, 7);
     const firstInstall = catalog.plugins.find((plugin) => plugin.id === "wuxianpi.first-install");
     assert.ok(firstInstall);
+    assert.deepEqual(
+      firstInstall.versions.map((candidate) => candidate.manifest.version),
+      ["1.0.1", "1.0.0"]
+    );
+    assert.equal(
+      firstInstall.versions[1].sha256,
+      "791424f96a6d59942e0d8e6ccebe5433fa4fe93e709e80e72fb6b7b30cdbded4"
+    );
     const release = firstInstall.versions[0];
+    assert.equal(release.manifest.version, "1.0.1");
     const archive = await readFile(path.join(temporary, "plugins", firstInstall.id, `${release.manifest.version}.zip`));
     assert.equal(archive.subarray(0, 2).toString("binary"), "PK");
     assert.equal(createHash("sha256").update(archive).digest("hex"), release.sha256);
@@ -35,27 +45,59 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     ]);
     const toolSteps = workflow.steps.filter((step: Record<string, unknown>) => typeof step.tool === "string");
     assert.ok(toolSteps.every((step: Record<string, unknown>) => allowed.has(String(step.tool))));
-    assert.equal(toolSteps.length, allowed.size);
     const stageSetup = workflow.steps.find((step: Record<string, unknown>) => step.id === "stage-setup");
-    const runSetup = workflow.steps.find((step: Record<string, unknown>) => step.id === "run-setup");
+    const runCommand = workflow.steps.find((step: Record<string, unknown>) => step.id === "run-command");
+    const runSetupNative = workflow.steps.find((step: Record<string, unknown>) => step.id === "run-setup-native");
+    const runSetupEmbedded = workflow.steps.find((step: Record<string, unknown>) => step.id === "run-setup-embedded");
     const verify = workflow.steps.find((step: Record<string, unknown>) => step.id === "verify");
     assert.deepEqual(
       { kind: stageSetup.kind, tool: stageSetup.tool },
       { kind: "tool", tool: "start_wuxianpi_setup" }
     );
     assert.deepEqual(
-      { kind: runSetup.kind, tool: runSetup.tool, sourceStep: runSetup.sourceStep },
+      { kind: runSetupNative.kind, tool: runSetupNative.tool, sourceStep: runSetupNative.sourceStep },
       { kind: "tool-from-result", tool: "termux_exec_command", sourceStep: "stage-setup" }
+    );
+    assert.equal(runSetupNative.when, "runtimeHost.externalTermux");
+    assert.deepEqual(
+      {
+        kind: runSetupEmbedded.kind,
+        tool: runSetupEmbedded.tool,
+        sourceStep: runSetupEmbedded.sourceStep,
+        when: runSetupEmbedded.when
+      },
+      {
+        kind: "tool-from-result",
+        tool: "termux_exec_command",
+        sourceStep: "stage-setup",
+        when: "!runtimeHost.externalTermux"
+      }
     );
     assert.deepEqual(
       { kind: verify.kind, tool: verify.tool },
       { kind: "poll-tool", tool: "get_wuxianpi_setup_status" }
     );
-    assert.match(String(runSetup.description), /command、session_name 和 yield_time_ms/);
+    assert.equal(runCommand.when, "runtimeHost.externalTermux");
+    assert.match(String(runCommand.description), /allow-external-apps = true/);
+    assert.match(String(runSetupNative.description), /install-resources\/current\/bootstrap\/wuxianpi-setup/);
+    assert.match(String(runSetupNative.description), /绝不能.*\$PREFIX\/bin\/wuxianpi-setup/);
+    assert.equal(runSetupEmbedded.arguments, undefined);
+    assert.match(String(runSetupEmbedded.description), /stage-setup 返回/);
+    assert.doesNotMatch(String(runSetupEmbedded.description), /\.local\/share\/wuxianpi\/install-resources/);
     assert.equal(workflow.executionPolicy.afterPersistentTermux, "termux_exec_command");
     assert.equal(workflow.executionPolicy.longRunningCommands, "termux_exec_command");
     assert.match(String(verify.description), /service-daemon/);
+    assert.match(String(verify.description), /unable to change to service directory/);
     assert.match(String(verify.description), /WuxianPi stopped 是正常按需状态/);
+    assert.deepEqual(verify.retryPolicy, {
+      maxAttempts: 10,
+      delayMs: 3000,
+      retryWhen: [
+        "runsvdir 尚未就绪",
+        "sv up service-manager 返回 unable to change to service directory",
+        "service-manager 20087 健康检查暂不可达"
+      ]
+    });
 
     const firstInstallGuide = await readFile(
       path.join(ROOT, "plugins", "official", firstInstall.id, "docs", "guide.md"),
@@ -63,6 +105,10 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     );
     assert.match(firstInstallGuide, /residentByDefault.*false/);
     assert.match(firstInstallGuide, /tmux.*不是正式服务的生命周期所有者/);
+    assert.match(firstInstallGuide, /allow-external-apps = true/);
+    assert.match(firstInstallGuide, /3 秒间隔最多重试 10 次/);
+    assert.match(firstInstallGuide, /Native 返回的命令会解包并调用/);
+    assert.match(firstInstallGuide, /All-in-One 返回的命令会调用宿主已暂存的 `\/bin\/wuxianpi-setup`/);
 
     const serviceManagerGuide = await readFile(
       path.join(ROOT, "plugins", "official", "wuxianpi.service-manager", "docs", "guide.md"),
@@ -84,6 +130,202 @@ test("builds validated deterministic plugin releases and catalog", async () => {
       ]
     );
     assert.ok(keyboardRelease.documents.some((document) => document.path === "scripts/termux-keyboard.sh"));
+  } finally {
+    await rm(temporary, { recursive: true, force: true });
+  }
+});
+
+test("preserves immutable historical releases with deterministic SemVer ordering", async () => {
+  const temporary = await mkdtemp(path.join(os.tmpdir(), "wuxianpi-plugin-history-"));
+  const source = path.join(temporary, "source");
+  const output = path.join(temporary, "public");
+  const pluginDirectory = path.join(source, "wuxianpi.fixture");
+  const documentPath = path.join(pluginDirectory, "docs", "guide.md");
+
+  const writeFixture = async (version: string, content: string) => {
+    await mkdir(path.dirname(documentPath), { recursive: true });
+    await writeFile(path.join(pluginDirectory, "manifest.json"), `${JSON.stringify({
+      schemaVersion: 1,
+      id: "wuxianpi.fixture",
+      version,
+      name: "Fixture",
+      description: "Plugin build fixture",
+      category: "test",
+      minHostVersion: 1,
+      requiredCapabilities: [],
+      tags: ["fixture"],
+      documents: [{ path: "docs/guide.md", title: "Guide" }]
+    }, null, 2)}\n`);
+    await writeFile(documentPath, content);
+  };
+
+  try {
+    await writeFixture("1.0.9", "historical\n");
+    const initial = await buildPlugins(source, output);
+    const historical = initial.plugins[0].versions[0];
+
+    await writeFixture("1.0.10", "latest\n");
+    const updated = await buildPlugins(source, output);
+    assert.deepEqual(
+      updated.plugins[0].versions.map((release) => release.manifest.version),
+      ["1.0.10", "1.0.9"]
+    );
+    assert.equal(updated.plugins[0].latestVersion, "1.0.10");
+    assert.equal(
+      createHash("sha256")
+        .update(await readFile(path.join(output, "plugins", "wuxianpi.fixture", "1.0.9.zip")))
+        .digest("hex"),
+      historical.sha256
+    );
+
+    const identical = await buildPlugins(source, output);
+    assert.deepEqual(
+      identical.plugins[0].versions.map((release) => release.manifest.version),
+      ["1.0.10", "1.0.9"]
+    );
+
+    await writeFile(documentPath, "mutated without a version bump\n");
+    await assert.rejects(
+      buildPlugins(source, output),
+      /wuxianpi\.fixture@1\.0\.10: published releases are immutable/
+    );
+    const catalogAfterFailure = JSON.parse(await readFile(path.join(output, "catalog.json"), "utf8"));
+    assert.deepEqual(
+      catalogAfterFailure.plugins[0].versions.map((release: { manifest: { version: string } }) => release.manifest.version),
+      ["1.0.10", "1.0.9"]
+    );
+
+    await rm(path.join(output, "catalog.json"));
+    await assert.rejects(
+      buildPlugins(source, output),
+      /wuxianpi\.fixture@1\.0\.10: published archive is immutable/
+    );
+  } finally {
+    await rm(temporary, { recursive: true, force: true });
+  }
+});
+
+test("published first-install catalog retains 1.0.0 and promotes 1.0.1", async () => {
+  const catalog = JSON.parse(await readFile(path.join(ROOT, "public", "catalog.json"), "utf8"));
+  const firstInstall = catalog.plugins.find((plugin: { id: string }) => plugin.id === "wuxianpi.first-install");
+  assert.ok(firstInstall);
+  assert.equal(firstInstall.latestVersion, "1.0.1");
+  assert.deepEqual(
+    firstInstall.versions.map((release: { manifest: { version: string } }) => release.manifest.version),
+    ["1.0.1", "1.0.0"]
+  );
+});
+
+test("orders equal-precedence build metadata versions deterministically", async () => {
+  const temporary = await mkdtemp(path.join(os.tmpdir(), "wuxianpi-plugin-build-metadata-"));
+  const source = path.join(temporary, "source");
+  const output = path.join(temporary, "public");
+  const pluginDirectory = path.join(source, "wuxianpi.build-metadata");
+
+  const writeFixture = async (version: string) => {
+    await mkdir(pluginDirectory, { recursive: true });
+    await writeFile(path.join(pluginDirectory, "manifest.json"), `${JSON.stringify({
+      schemaVersion: 1,
+      id: "wuxianpi.build-metadata",
+      version,
+      name: "Build metadata fixture",
+      description: "Equal precedence fixture",
+      category: "test",
+      minHostVersion: 1,
+      requiredCapabilities: [],
+      tags: [],
+      documents: []
+    }, null, 2)}\n`);
+  };
+
+  try {
+    await writeFixture("1.0.0+build.2");
+    await buildPlugins(source, output);
+    await writeFixture("1.0.0+build.1");
+    const catalog = await buildPlugins(source, output);
+    assert.deepEqual(
+      catalog.plugins[0].versions.map((release) => release.manifest.version),
+      ["1.0.0+build.2", "1.0.0+build.1"]
+    );
+    assert.equal(catalog.plugins[0].latestVersion, "1.0.0+build.2");
+
+    const catalogPath = path.join(output, "catalog.json");
+    const reversed = JSON.parse(await readFile(catalogPath, "utf8"));
+    reversed.plugins[0].versions.reverse();
+    await writeFile(catalogPath, `${JSON.stringify(reversed, null, 2)}\n`);
+    const rebuilt = await buildPlugins(source, output);
+    assert.deepEqual(
+      rebuilt.plugins[0].versions.map((release) => release.manifest.version),
+      ["1.0.0+build.2", "1.0.0+build.1"]
+    );
+    assert.equal(rebuilt.plugins[0].latestVersion, "1.0.0+build.2");
+  } finally {
+    await rm(temporary, { recursive: true, force: true });
+  }
+});
+
+test("produces identical archives and catalog ordering under different locales", async () => {
+  const temporary = await mkdtemp(path.join(os.tmpdir(), "wuxianpi-plugin-locale-"));
+  const source = path.join(temporary, "source");
+  const englishOutput = path.join(temporary, "public-en");
+  const swedishOutput = path.join(temporary, "public-sv");
+
+  const writeFixture = async (id: string) => {
+    const pluginDirectory = path.join(source, id);
+    await mkdir(pluginDirectory, { recursive: true });
+    await writeFile(path.join(pluginDirectory, "manifest.json"), `${JSON.stringify({
+      schemaVersion: 1,
+      id,
+      version: "1.0.0",
+      name: id,
+      description: "Locale-independent ordering fixture",
+      category: "test",
+      minHostVersion: 1,
+      requiredCapabilities: [],
+      tags: [],
+      documents: []
+    }, null, 2)}\n`);
+    for (const fileName of ["A.txt", "_note.txt", "a.txt", "z-1.txt", "z.1.txt", "ä.txt", "中.txt"]) {
+      await writeFile(path.join(pluginDirectory, fileName), `${fileName}\n`);
+    }
+  };
+
+  const buildUnderLocale = (locale: string, output: string): string => {
+    const moduleUrl = pathToFileURL(path.join(ROOT, "dist", "build-plugins.js")).href;
+    const script = [
+      `import { buildPlugins } from ${JSON.stringify(moduleUrl)};`,
+      `await buildPlugins(${JSON.stringify(source)}, ${JSON.stringify(output)});`,
+      "process.stdout.write(Intl.Collator().resolvedOptions().locale);"
+    ].join("\n");
+    const result = spawnSync(process.execPath, ["--input-type=module", "-e", script], {
+      encoding: "utf8",
+      env: { ...process.env, LANG: locale, LC_ALL: locale, LC_CTYPE: locale }
+    });
+    assert.equal(result.status, 0, result.stderr);
+    return result.stdout;
+  };
+
+  try {
+    await writeFixture("wuxianpi.a-b");
+    await writeFixture("wuxianpi.a.b");
+    const englishLocale = buildUnderLocale("en", englishOutput);
+    const swedishLocale = buildUnderLocale("sv", swedishOutput);
+    assert.notEqual(englishLocale, swedishLocale);
+
+    const englishCatalog = JSON.parse(await readFile(path.join(englishOutput, "catalog.json"), "utf8"));
+    const swedishCatalog = JSON.parse(await readFile(path.join(swedishOutput, "catalog.json"), "utf8"));
+    assert.equal(englishCatalog.revision, swedishCatalog.revision);
+    assert.deepEqual(englishCatalog.plugins, swedishCatalog.plugins);
+    assert.deepEqual(
+      englishCatalog.plugins.map((plugin: { id: string }) => plugin.id),
+      ["wuxianpi.a-b", "wuxianpi.a.b"]
+    );
+
+    for (const id of ["wuxianpi.a-b", "wuxianpi.a.b"]) {
+      const englishArchive = await readFile(path.join(englishOutput, "plugins", id, "1.0.0.zip"));
+      const swedishArchive = await readFile(path.join(swedishOutput, "plugins", id, "1.0.0.zip"));
+      assert.deepEqual(englishArchive, swedishArchive);
+    }
   } finally {
     await rm(temporary, { recursive: true, force: true });
   }
