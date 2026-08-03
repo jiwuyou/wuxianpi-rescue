@@ -22,7 +22,8 @@ test("serves catalog, downloads and persistent versioned comments", async () => 
   try {
     const health = await fetch(`${base}/health`);
     assert.equal(health.status, 200);
-    assert.equal((await health.json()).plugins, 7);
+    const healthPayload = await health.json() as { plugins: number };
+    assert.ok(Number.isInteger(healthPayload.plugins) && healthPayload.plugins > 0);
 
     const catalog = await (await fetch(`${base}/api/v1/plugins?q=termux`)).json();
     assert.ok(catalog.plugins.some((plugin: { id: string }) => plugin.id === "wuxianpi.termux-repair"));

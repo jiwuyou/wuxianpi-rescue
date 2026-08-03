@@ -49,6 +49,11 @@ async function buildRelease(directory: string, expectedPluginId = path.basename(
   for (const document of manifest.documents) {
     if (!available.has(document.path)) throw new Error(`${manifest.id}: missing document ${document.path}`);
   }
+  for (const context of manifest.assistantContexts) {
+    if (!available.has(context.path)) {
+      throw new Error(`${manifest.id}: missing assistant context ${context.path}`);
+    }
+  }
   if (manifest.entryWorkflow && !available.has(manifest.entryWorkflow)) {
     throw new Error(`${manifest.id}: missing entry workflow ${manifest.entryWorkflow}`);
   }

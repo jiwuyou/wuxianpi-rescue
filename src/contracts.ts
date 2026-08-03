@@ -7,6 +7,16 @@ export interface PluginDocumentDeclaration {
   title: string;
 }
 
+export type PluginAssistantContextScope = "session" | "turn";
+export type PluginAssistantContextProvider = "static" | "javascript";
+
+export interface PluginAssistantContextDeclaration {
+  path: string;
+  scope: PluginAssistantContextScope;
+  provider: PluginAssistantContextProvider;
+  function?: string;
+}
+
 export interface PluginManifest {
   schemaVersion: 1;
   id: string;
@@ -18,6 +28,7 @@ export interface PluginManifest {
   requiredCapabilities: string[];
   tags: string[];
   entryWorkflow?: string;
+  assistantContexts: PluginAssistantContextDeclaration[];
   documents: PluginDocumentDeclaration[];
 }
 
@@ -87,7 +98,12 @@ function requiredString(value: unknown, field: string): asserts value is string 
 }
 
 function safeRelativePath(value: string, field: string): void {
-  if (value.startsWith("/") || value.includes("\\") || value.split("/").includes("..")) {
+  const segments = value.split("/");
+  if (
+    value.startsWith("/") ||
+    value.includes("\\") ||
+    segments.some((segment) => segment.length === 0 || segment === "." || segment === "..")
+  ) {
     throw new Error(`${field} must be a safe relative path`);
   }
 }
@@ -95,6 +111,15 @@ function safeRelativePath(value: string, field: string): void {
 function stringArray(value: unknown, field: string): asserts value is string[] {
   if (!Array.isArray(value) || value.some((item) => typeof item !== "string" || item.trim().length === 0)) {
     throw new Error(`${field} must be an array of non-empty strings`);
+  }
+}
+
+function rejectUnknownFields(value: Record<string, unknown>, allowed: readonly string[], field: string): void {
+  const allowedFields = new Set(allowed);
+  for (const key of Object.keys(value)) {
+    if (!allowedFields.has(key)) {
+      throw new Error(`${field} has an unknown field '${key}'`);
+    }
   }
 }
 
@@ -163,6 +188,45 @@ export function validateManifest(input: unknown): PluginManifest {
     entryWorkflow = input.entryWorkflow;
   }
 
+  const assistantContexts = input.assistantContexts === undefined
+    ? []
+    : (() => {
+        if (!Array.isArray(input.assistantContexts)) {
+          throw new Error("assistantContexts must be an array");
+        }
+        return input.assistantContexts.map((context, index) => {
+          if (!isRecord(context)) {
+            throw new Error(`assistantContexts[${index}] must be an object`);
+          }
+          rejectUnknownFields(context, ["path", "scope", "provider", "function"], `assistantContexts[${index}]`);
+          requiredString(context.path, `assistantContexts[${index}].path`);
+          safeRelativePath(context.path, `assistantContexts[${index}].path`);
+          if (context.scope !== "session" && context.scope !== "turn") {
+            throw new Error(`assistantContexts[${index}].scope must be session or turn`);
+          }
+          const scope: PluginAssistantContextScope = context.scope;
+          const provider: PluginAssistantContextProvider = context.provider === undefined ? "static" : context.provider as PluginAssistantContextProvider;
+          if (provider !== "static" && provider !== "javascript") {
+            throw new Error(`assistantContexts[${index}].provider must be static or javascript`);
+          }
+          let functionName: string | undefined;
+          if (context.function !== undefined) {
+            requiredString(context.function, `assistantContexts[${index}].function`);
+            if (!/^[A-Za-z_$][0-9A-Za-z_$]*$/.test(context.function)) {
+              throw new Error(`assistantContexts[${index}].function has an invalid format`);
+            }
+            functionName = context.function;
+          }
+          if (provider === "javascript" && !functionName) {
+            throw new Error(`assistantContexts[${index}].function is required for javascript provider`);
+          }
+          if (provider === "static" && functionName) {
+            throw new Error(`assistantContexts[${index}].function is only valid for javascript provider`);
+          }
+          return { path: context.path, scope, provider, ...(functionName ? { function: functionName } : {}) };
+        });
+      })();
+
   return {
     schemaVersion: PLUGIN_SCHEMA_VERSION,
     id: input.id,
@@ -174,6 +238,7 @@ export function validateManifest(input: unknown): PluginManifest {
     requiredCapabilities: [...input.requiredCapabilities],
     tags: [...input.tags],
     entryWorkflow,
+    assistantContexts,
     documents
   };
 }

@@ -19,6 +19,36 @@
     "requiredCapabilities": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
     "tags": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
     "entryWorkflow": { "$ref": "#/$defs/safePath" },
+    "assistantContexts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "scope"],
+        "properties": {
+          "path": { "$ref": "#/$defs/safePath" },
+          "scope": { "enum": ["session", "turn"] },
+          "provider": { "enum": ["static", "javascript"], "default": "static" },
+          "function": { "type": "string", "pattern": "^[A-Za-z_$][0-9A-Za-z_$]*$" }
+        },
+        "allOf": [
+          {
+            "if": {
+              "required": ["provider"],
+              "properties": { "provider": { "const": "javascript" } }
+            },
+            "then": { "required": ["function"] }
+          },
+          {
+            "if": {
+              "required": ["provider"],
+              "properties": { "provider": { "const": "static" } }
+            },
+            "then": { "not": { "required": ["function"] } }
+          }
+        ]
+      }
+    },
     "documents": {
       "type": "array",
       "items": {
@@ -36,7 +66,7 @@
     "safePath": {
       "type": "string",
       "minLength": 1,
-      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$"
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)(?!.*\\\\).+$"
     }
   }
 }

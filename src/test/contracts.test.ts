@@ -32,6 +32,42 @@ test("validates strict SemVer manifests and accepts build metadata", () => {
   assert.equal(validateManifest(manifest(" 1.0.0+build.1 ")).version, "1.0.0+build.1");
 });
 
+test("accepts optional assistant contexts while preserving old manifests", () => {
+  const legacy = validateManifest(manifest("1.0.0"));
+  assert.deepEqual(legacy.assistantContexts, []);
+
+  const withContext = validateManifest({
+    ...manifest("1.0.0"),
+    assistantContexts: [
+      { path: "prompts/instruction.md", scope: "session" },
+      { path: "scripts/time.js", scope: "turn", provider: "javascript", function: "buildContext" }
+    ]
+  });
+  assert.deepEqual(withContext.assistantContexts, [
+    { path: "prompts/instruction.md", scope: "session", provider: "static" },
+    { path: "scripts/time.js", scope: "turn", provider: "javascript", function: "buildContext" }
+  ]);
+});
+
+test("rejects unsafe or incomplete assistant context declarations", () => {
+  assert.throws(() => validateManifest({
+    ...manifest("1.0.0"),
+    assistantContexts: [{ path: "../instruction.md", scope: "session" }]
+  }), /safe relative path/);
+  assert.throws(() => validateManifest({
+    ...manifest("1.0.0"),
+    assistantContexts: [{ path: "scripts/time.js", scope: "turn", provider: "javascript" }]
+  }), /function is required/);
+  assert.throws(() => validateManifest({
+    ...manifest("1.0.0"),
+    assistantContexts: [{ path: "prompts/instruction.md", scope: "session", extra: true }]
+  }), /unknown field 'extra'/);
+  assert.throws(() => validateManifest({
+    ...manifest("1.0.0"),
+    assistantContexts: [{ path: "scripts/time.js", scope: "turn", provider: "static", function: "buildContext" }]
+  }), /only valid for javascript/);
+});
+
 test("rejects leading zeroes and empty or malformed SemVer identifiers", () => {
   const invalid = [
     "01.0.0",

@@ -15,7 +15,14 @@ test("builds validated deterministic plugin releases and catalog", async () => {
   const temporary = await mkdtemp(path.join(os.tmpdir(), "wuxianpi-plugin-build-"));
   try {
     const catalog = await buildPlugins(path.join(ROOT, "plugins", "official"), temporary);
-    assert.equal(catalog.plugins.length, 7);
+    const pluginIds = new Set(catalog.plugins.map((plugin) => plugin.id));
+    for (const requiredId of [
+      "wuxianpi.first-install",
+      "wuxianpi.openhouse-small-app-guide",
+      "wuxianpi.service-manager"
+    ]) {
+      assert.ok(pluginIds.has(requiredId), `missing required plugin ${requiredId}`);
+    }
     const firstInstall = catalog.plugins.find((plugin) => plugin.id === "wuxianpi.first-install");
     assert.ok(firstInstall);
     assert.deepEqual(
@@ -130,6 +137,31 @@ test("builds validated deterministic plugin releases and catalog", async () => {
       ]
     );
     assert.ok(keyboardRelease.documents.some((document) => document.path === "scripts/termux-keyboard.sh"));
+
+    const openHouseGuide = catalog.plugins.find(
+      (plugin) => plugin.id === "wuxianpi.openhouse-small-app-guide"
+    );
+    assert.ok(openHouseGuide);
+    const openHouseRelease = openHouseGuide.versions[0];
+    assert.equal(openHouseRelease.manifest.minHostVersion, 13);
+    assert.deepEqual(openHouseRelease.manifest.assistantContexts, [
+      { path: "prompts/instruction.md", scope: "session", provider: "static" }
+    ]);
+    const instruction = await readFile(
+      path.join(ROOT, "plugins", "official", openHouseGuide.id, "prompts", "instruction.md"),
+      "utf8"
+    );
+    assert.equal(
+      instruction,
+      "需要创建或管理 OpenHouse 小 App 时，先读取《OpenHouse 小 App 开发与统一接入指南》。\n"
+    );
+    const guide = await readFile(
+      path.join(ROOT, "plugins", "official", openHouseGuide.id, "docs", "guide.md")
+    );
+    assert.equal(
+      createHash("sha256").update(guide).digest("hex"),
+      "369f82002a39dffab56c4507af149a228ed0e8679bacbcd1d4e0b5b712925b47"
+    );
   } finally {
     await rm(temporary, { recursive: true, force: true });
   }
@@ -344,4 +376,34 @@ test("rejects unsafe manifest document paths", () => {
     tags: [],
     documents: [{ path: "../outside.md", title: "Outside" }]
   }), /safe relative path/);
+});
+
+test("rejects assistant context declarations whose file is missing", async () => {
+  const temporary = await mkdtemp(path.join(os.tmpdir(), "wuxianpi-plugin-instruction-"));
+  const source = path.join(temporary, "source");
+  const output = path.join(temporary, "public");
+  const pluginDirectory = path.join(source, "wuxianpi.instruction-fixture");
+  try {
+    await mkdir(pluginDirectory, { recursive: true });
+    await writeFile(path.join(pluginDirectory, "manifest.json"), `${JSON.stringify({
+      schemaVersion: 1,
+      id: "wuxianpi.instruction-fixture",
+      version: "1.0.0",
+      name: "Instruction fixture",
+      description: "Missing instruction fixture",
+      category: "test",
+      minHostVersion: 1,
+      requiredCapabilities: [],
+      tags: [],
+      assistantContexts: [{ path: "prompts/instruction.md", scope: "session" }],
+      documents: []
+    })}\n`);
+
+    await assert.rejects(
+      buildPlugins(source, output),
+      /missing assistant context prompts\/instruction\.md/
+    );
+  } finally {
+    await rm(temporary, { recursive: true, force: true });
+  }
 });

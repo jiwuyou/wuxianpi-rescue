@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "wuxianpi.openhouse-small-app-guide",
+  "version": "1.0.0",
+  "name": "OpenHouse 小 App 开发与统一接入指南",
+  "description": "需要创建或管理 OpenHouse 小 App 时，先读取《OpenHouse 小 App 开发与统一接入指南》。",
+  "category": "knowledge",
+  "minHostVersion": 13,
+  "requiredCapabilities": [],
+  "tags": ["OpenHouse", "小 App", "Termux", "service-manager"],
+  "assistantContexts": [
+    {
+      "path": "prompts/instruction.md",
+      "scope": "session"
+    }
+  ],
+  "documents": [
+    {
+      "path": "docs/guide.md",
+      "title": "OpenHouse 小 App 开发与统一接入指南"
+    }
+  ]
+}
