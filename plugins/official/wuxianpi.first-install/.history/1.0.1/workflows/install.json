@@ -77,64 +77,6 @@
         ]
       },
       "description": "轮询安装状态，并检查 service-daemon、runsvdir、sv status service-manager、20087、WuxianPi 服务声明、Ubuntu 和终端能力。termux-services 首次启动可能存在 runsvdir 时序窗口；遇到 unable to change to service directory 或暂时不可达时，按 retryPolicy 等待后重试 readiness，不要立即判定安装失败。WuxianPi stopped 是正常按需状态。"
-    },
-    {
-      "id": "read-openhouse-registration-script",
-      "kind": "tool",
-      "tool": "read_rescue_plugin_document",
-      "arguments": {
-        "pluginId": "wuxianpi.first-install",
-        "path": "scripts/register-openhouse-component.sh"
-      },
-      "description": "读取版本化的 OpenHouse 桌面组件注册脚本，避免由 Agent 临时拼接注册清单。"
-    },
-    {
-      "id": "prepare-openhouse-registration-directory",
-      "kind": "tool",
-      "tool": "termux_exec_command",
-      "arguments": {
-        "command": "mkdir -p \"$HOME/.local/share/wuxianpi/plugins/wuxianpi.first-install\"",
-        "working_directory": "$HOME",
-        "session_name": "wuxianpi-openhouse-registration-prepare",
-        "yield_time_ms": 1000
-      },
-      "description": "准备插件脚本的 Termux 持久目录。"
-    },
-    {
-      "id": "write-openhouse-registration-script",
-      "kind": "tool-from-result",
-      "tool": "write_file",
-      "sourceStep": "read-openhouse-registration-script",
-      "arguments": {
-        "environment": "repo:termux-home",
-        "path": ".local/share/wuxianpi/plugins/wuxianpi.first-install/register-openhouse-component.sh",
-        "content": "{{steps.read-openhouse-registration-script.content}}"
-      },
-      "description": "将当前插件版本的注册脚本写入 Termux Home；脚本只管理 pi-agent 组件，不删除用户组件或 WuxianPi 服务。"
-    },
-    {
-      "id": "register-openhouse-component",
-      "kind": "tool",
-      "tool": "termux_exec_command",
-      "arguments": {
-        "command": "chmod 700 \"$HOME/.local/share/wuxianpi/plugins/wuxianpi.first-install/register-openhouse-component.sh\" && \"$HOME/.local/share/wuxianpi/plugins/wuxianpi.first-install/register-openhouse-component.sh\" register",
-        "working_directory": "$HOME",
-        "session_name": "wuxianpi-openhouse-component-register",
-        "yield_time_ms": 1000
-      },
-      "description": "通过 canonical service-manager 注册或修复 pi-agent 桌面组件；写入固定 ID，重复执行安全。"
-    },
-    {
-      "id": "verify-openhouse-component",
-      "kind": "tool",
-      "tool": "termux_exec_command",
-      "arguments": {
-        "command": "\"$HOME/.local/share/wuxianpi/plugins/wuxianpi.first-install/register-openhouse-component.sh\" verify",
-        "working_directory": "$HOME",
-        "session_name": "wuxianpi-openhouse-component-verify",
-        "yield_time_ms": 1000
-      },
-      "description": "验证 components.d/pi-agent.json 和 service-manager registry API；完成后提示重启原生 App 以重新加载桌面目录。"
     }
   ]
 }

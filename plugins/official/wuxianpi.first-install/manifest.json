@@ -1,15 +1,16 @@
 {
   "schemaVersion": 1,
   "id": "wuxianpi.first-install",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "name": "首次安装",
-  "description": "检查真实环境并完成 Termux、service-manager 常驻链路、按需 WuxianPi 与 Ubuntu 初始化。",
+  "description": "检查真实环境，完成 Termux、service-manager 常驻链路、按需 WuxianPi、桌面组件注册与 Ubuntu 初始化。",
   "category": "setup",
   "minHostVersion": 12,
   "requiredCapabilities": ["setup-tools", "termux", "persistent-terminal"],
   "tags": ["首次安装", "初始化", "Termux"],
   "entryWorkflow": "workflows/install.json",
   "documents": [
-    { "path": "docs/guide.md", "title": "首次安装说明" }
+    { "path": "docs/guide.md", "title": "首次安装说明" },
+    { "path": "scripts/register-openhouse-component.sh", "title": "OpenHouse 桌面组件注册脚本" }
   ]
 }
