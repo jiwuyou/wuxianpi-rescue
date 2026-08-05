@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "wuxianpi.first-install",
-  "version": "1.0.3",
+  "version": "1.0.2",
   "name": "首次安装",
   "description": "检查真实环境，完成 Termux、service-manager 常驻链路、按需 WuxianPi、桌面组件注册与 Ubuntu 初始化。",
   "category": "setup",

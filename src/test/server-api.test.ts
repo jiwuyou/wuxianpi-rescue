@@ -29,10 +29,10 @@ test("serves catalog, downloads and persistent versioned comments", async () => 
     assert.ok(catalog.plugins.some((plugin: { id: string }) => plugin.id === "wuxianpi.termux-repair"));
 
     const detail = await (await fetch(`${base}/api/v1/plugins/wuxianpi.first-install`)).json();
-    assert.equal(detail.latestVersion, "1.0.2");
+    assert.equal(detail.latestVersion, "1.0.3");
     assert.deepEqual(
       detail.versions.map((release: { manifest: { version: string } }) => release.manifest.version),
-      ["1.0.2", "1.0.1", "1.0.0"]
+      ["1.0.3", "1.0.2", "1.0.1", "1.0.0"]
     );
     const release = detail.versions[0];
     const download = await fetch(`${base}${release.downloadUrl}`);

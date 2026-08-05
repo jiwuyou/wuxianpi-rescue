@@ -1,8 +1,8 @@
 # WuxianPi 首次安装
 
-这个插件根据设备的真实状态继续执行，不维护脆弱的向导进度。再次运行时，已经完成的步骤会被检查并跳过。1.0.3 将旧版桌面组件 ID `pi-agent` 迁移为与服务一致的 `yuanshengwuxianpi`。
+这个插件根据设备的真实状态继续执行，不维护脆弱的向导进度。再次运行时，已经完成的步骤会被检查并跳过。
 
-首次安装除了部署 `yuanshengwuxianpi` 服务，还会注册一个 OpenHouse 桌面组件。服务注册和桌面组件注册是两条独立链路：服务可以已经运行，但如果 `components.d` 没有 `yuanshengwuxianpi`，原生桌面不会显示 WuxianPi 入口。
+首次安装除了部署 `yuanshengwuxianpi` 服务，还会注册一个 OpenHouse 桌面组件。服务注册和桌面组件注册是两条独立链路：服务可以已经运行，但如果 `components.d` 没有 `pi-agent`，原生桌面不会显示 WuxianPi 入口。
 
 ## 两种宿主
 
@@ -23,44 +23,32 @@
 10. 安装并注册 service-manager、WuxianPi 和 Ubuntu；暂不安装 AionUI 等可选组件。
 11. WuxianPi 注册为 `yuanshengwuxianpi`，固定使用 `127.0.0.1:20765`，但安装时不默认启动，也不设为常驻。
 12. 检查终端工具、service-manager 常驻链路、WuxianPi 服务声明和 Ubuntu。只有明确测试模型或打开 WuxianPi 时才按需启动 WuxianPi。
-13. 读取插件内置的 `scripts/register-openhouse-component.sh`，将 `yuanshengwuxianpi` 写入 OpenHouse registry，并验证 `/api/v1/registry/components` 返回该组件。
+13. 读取插件内置的 `scripts/register-openhouse-component.sh`，将 `pi-agent` 写入 OpenHouse registry，并验证 `/api/v1/registry/components` 返回该组件。
 
 ## 桌面组件注册
 
 标准组件清单位置是：
 
 ```text
-$HOME/.config/openhouseai/components.d/yuanshengwuxianpi.json
+$HOME/.config/openhouseai/components.d/pi-agent.json
 ```
 
-本插件使用与 service-manager 服务完全一致的固定组件 ID `yuanshengwuxianpi`，入口为：
+本插件使用固定组件 ID `pi-agent`，入口为：
 
 ```text
 http://127.0.0.1:20765/
 ```
 
-该地址由已经安装的 `yuanshengwuxianpi` 提供。注册脚本只写入或更新 `yuanshengwuxianpi`，不会删除其它组件，也不会重装或删除 WuxianPi 服务。当前 service-manager 没有发布 20765 endpoint，因此清单使用固定本地地址，服务控制仍通过 OpenHouse 内置的服务控制入口完成。
+该地址由已经安装的 `yuanshengwuxianpi` 提供。注册脚本只写入或更新 `pi-agent`，不会删除其它组件，也不会重装或删除 WuxianPi 服务。当前 service-manager 没有发布 20765 endpoint，因此清单使用固定本地地址，服务控制仍通过 OpenHouse 内置的服务控制入口完成。
 
 注册操作通过 service-manager API 完成：
 
 ```text
-PUT /api/v1/registry/components/yuanshengwuxianpi
+PUT /api/v1/registry/components/pi-agent
 POST /api/v1/registry/sync
 ```
 
 如果 API 暂时不可用，脚本会保留文件 registry，下一次运行时重试 API 同步。完成注册后需要完全退出并重新打开原生 `com.wuxianpi`，因为桌面 registry 在进程启动时加载。
-
-### 旧版本迁移
-
-1.0.2 及更早版本可能写入 `components.d/pi-agent.json`。注册脚本只在文件同时包含旧 ID 和 WuxianPi 标识（名称、服务 ID 或 20765 本地入口）时认定它属于本插件；其它同名文件会原样保留。
-
-确认属于本插件后，旧清单会先备份到：
-
-```text
-$HOME/.local/share/wuxianpi/plugins/wuxianpi.first-install/migrations/
-```
-
-再移除旧文件并写入 `components.d/yuanshengwuxianpi.json`。脚本会尽力调用 `DELETE /api/v1/registry/components/pi-agent` 清理旧 registry 项；即使服务端尚不支持删除或暂时不可达，也不会阻塞新组件注册。
 
 ## 服务生命周期
 
@@ -76,5 +64,4 @@ $HOME/.local/share/wuxianpi/plugins/wuxianpi.first-install/migrations/
 - RUN_COMMAND 的 Android 权限已授予，不代表 Termux 已允许外部命令；必须同时验证 `allow-external-apps = true` 和真实命令返回。
 - `runsvdir` 启动存在短暂时序窗口，首次 `sv up service-manager` 失败时先等待并重试 readiness，不需要立刻手工修复。
 - 重跑安装必须执行 `start_wuxianpi_setup` 返回的宿主命令。Native 命令从 `install-resources/current/bootstrap/wuxianpi-setup` 原始资源启动；All-in-One 命令使用宿主已暂存的 `/bin/wuxianpi-setup`。
-- 如果服务检查成功但桌面没有 WuxianPi，先运行本插件的组件注册步骤，再检查 `$HOME/.config/openhouseai/components.d/yuanshengwuxianpi.json` 和 `/api/v1/registry/components`；不要重复安装 `yuanshengwuxianpi`。
-- 已安装设备更新到 1.0.3 后，重新运行首次安装工作流即可完成旧 `pi-agent` 清单迁移；不需要重装服务或重新构建 APK。
+- 如果服务检查成功但桌面没有 WuxianPi，先运行本插件的组件注册步骤，再检查 `$HOME/.config/openhouseai/components.d/pi-agent.json` 和 `/api/v1/registry/components`；不要重复安装 `yuanshengwuxianpi`。

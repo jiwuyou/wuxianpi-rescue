@@ -86,7 +86,7 @@
         "pluginId": "wuxianpi.first-install",
         "path": "scripts/register-openhouse-component.sh"
       },
-      "description": "读取版本化的 OpenHouse 桌面组件注册脚本，使用与 yuanshengwuxianpi 服务一致的组件 ID，避免由 Agent 临时拼接注册清单。"
+      "description": "读取版本化的 OpenHouse 桌面组件注册脚本，避免由 Agent 临时拼接注册清单。"
     },
     {
       "id": "prepare-openhouse-registration-directory",
@@ -110,7 +110,7 @@
         "path": ".local/share/wuxianpi/plugins/wuxianpi.first-install/register-openhouse-component.sh",
         "content": "{{steps.read-openhouse-registration-script.content}}"
       },
-      "description": "将当前插件版本的注册脚本写入 Termux Home；脚本只管理 yuanshengwuxianpi 组件，不删除用户组件或 WuxianPi 服务。"
+      "description": "将当前插件版本的注册脚本写入 Termux Home；脚本只管理 pi-agent 组件，不删除用户组件或 WuxianPi 服务。"
     },
     {
       "id": "register-openhouse-component",
@@ -122,7 +122,7 @@
         "session_name": "wuxianpi-openhouse-component-register",
         "yield_time_ms": 1000
       },
-      "description": "通过 canonical service-manager 注册或修复 yuanshengwuxianpi 桌面组件；必要时迁移已确认属于 WuxianPi 的旧 pi-agent 清单，重复执行安全。"
+      "description": "通过 canonical service-manager 注册或修复 pi-agent 桌面组件；写入固定 ID，重复执行安全。"
     },
     {
       "id": "verify-openhouse-component",
@@ -134,7 +134,7 @@
         "session_name": "wuxianpi-openhouse-component-verify",
         "yield_time_ms": 1000
       },
-      "description": "验证 components.d/yuanshengwuxianpi.json 和 service-manager registry API；完成后提示重启原生 App 以重新加载桌面目录。"
+      "description": "验证 components.d/pi-agent.json 和 service-manager registry API；完成后提示重启原生 App 以重新加载桌面目录。"
     }
   ]
 }
