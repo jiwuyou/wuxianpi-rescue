@@ -116,12 +116,14 @@ MCP 支持 `initialize`、`tools/list` 和 `tools/call`，提供：
 ```bash
 git clone https://github.com/jiwuyou/wuxianpi-rescue.git /opt/wuxianpi-rescue
 mkdir -p /var/lib/wuxianpi-rescue
-docker compose -f /opt/wuxianpi-rescue/deploy/docker-compose.yml up -d --build
+printf 'WUXIANPI_RESCUE_MANAGEMENT_TOKEN=...\n' > /opt/wuxianpi-rescue/.env
+chmod 600 /opt/wuxianpi-rescue/.env
+docker compose --env-file /opt/wuxianpi-rescue/.env -f /opt/wuxianpi-rescue/deploy/docker-compose.yml up -d --build
 ```
 
 Compose 只把服务发布到宿主 `127.0.0.1:20877`。复制 `deploy/nginx-wuxianpi-rescue.conf` 到独立 Nginx vhost，申请证书后执行 `nginx -t` 并 reload。
 
-Compose 启动时会把镜像内的 `public/catalog.json` 和插件 ZIP 迁移到 `/data/releases`（只补齐缺失文件，不覆盖已经发布的版本）。之后公共 `/catalog.json`、插件查询和下载都从该持久化目录读取；升级市场服务自身代码不会丢失已发布内容。`deploy/deploy.sh` 仅用于升级市场服务代码和容器，不用于发布插件。
+Compose 启动时会把镜像内的 `public/catalog.json` 和插件 ZIP 迁移到 `/data/releases`（只补齐缺失文件，不覆盖已经发布的版本）。之后公共 `/catalog.json`、插件查询和下载都从该持久化目录读取；升级市场服务自身代码不会丢失已发布内容。`deploy/deploy.sh` 会显式读取 `/opt/wuxianpi-rescue/.env`（也可通过 `ENV_FILE` 覆盖），仅用于升级市场服务代码和容器，不用于发布插件。
 
 备份脚本会短暂停止 Rescue 服务，复制一致的 SQLite 数据库并打包持久化发布目录，然后恢复容器：
 
