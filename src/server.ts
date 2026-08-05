@@ -1,13 +1,21 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { readFile, stat } from "node:fs/promises";
+import { stat } from "node:fs/promises";
 import { createServer, IncomingMessage, Server, ServerResponse } from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { CatalogRepository, defaultCatalogPath } from "./catalog.js";
+import { CatalogRepository } from "./catalog.js";
 import { isAuthorType } from "./contracts.js";
 import { CommentStore } from "./database.js";
 import { McpHandler } from "./mcp.js";
+import {
+  defaultReleaseDirectory,
+  ReleaseConflictError,
+  ReleaseNotFoundError,
+  ReleaseStore,
+  ReleaseValidationError,
+  validateReleaseMetadata
+} from "./release-store.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -15,8 +23,16 @@ export interface HubServerOptions {
   rootDirectory?: string;
   publicDirectory?: string;
   databasePath?: string;
+  releaseDirectory?: string;
+  managementToken?: string;
   host?: string;
   port?: number;
+}
+
+class HttpError extends Error {
+  constructor(readonly status: number, message: string) {
+    super(message);
+  }
 }
 
 interface CommentBody {
@@ -56,17 +72,80 @@ function text(response: ServerResponse, status: number, body: string, contentTyp
   response.end(payload);
 }
 
-async function body(request: IncomingMessage): Promise<unknown> {
+async function requestBytes(request: IncomingMessage, maximum: number): Promise<Buffer> {
+  const declaredLength = request.headers["content-length"];
+  if (declaredLength && Number.isFinite(Number(declaredLength)) && Number(declaredLength) > maximum) {
+    throw new HttpError(413, "request body is too large");
+  }
   const chunks: Buffer[] = [];
   let length = 0;
   for await (const chunk of request) {
     const part = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
     length += part.length;
-    if (length > 1024 * 1024) throw new Error("request body is too large");
+    if (length > maximum) throw new HttpError(413, "request body is too large");
     chunks.push(part);
   }
-  if (chunks.length === 0) return {};
-  return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  return Buffer.concat(chunks);
+}
+
+async function body(request: IncomingMessage): Promise<unknown> {
+  const payload = await requestBytes(request, 1024 * 1024);
+  if (payload.length === 0) return {};
+  return JSON.parse(payload.toString("utf8"));
+}
+
+async function multipartBody(request: IncomingMessage): Promise<FormData> {
+  const contentType = request.headers["content-type"];
+  const normalizedContentType = Array.isArray(contentType) ? contentType[0] : contentType;
+  if (!normalizedContentType?.toLowerCase().startsWith("multipart/form-data;")) {
+    throw new HttpError(415, "management upload requires multipart/form-data");
+  }
+  const payload = await requestBytes(request, 32 * 1024 * 1024);
+  try {
+    return await new Response(new Uint8Array(payload), { headers: { "content-type": normalizedContentType } }).formData();
+  } catch {
+    throw new HttpError(400, "invalid multipart/form-data body");
+  }
+}
+
+async function formText(form: FormData, field: string): Promise<string> {
+  const value = form.get(field);
+  if (typeof value === "string") return value;
+  if (value && typeof (value as File).text === "function") return (value as File).text();
+  throw new HttpError(400, `${field} is required`);
+}
+
+async function formFile(form: FormData, field: string): Promise<Buffer> {
+  const value = form.get(field);
+  if (!value || typeof value === "string" || typeof (value as File).arrayBuffer !== "function") {
+    throw new HttpError(400, `${field} is required`);
+  }
+  return Buffer.from(await (value as File).arrayBuffer());
+}
+
+function requireManagementAccess(request: IncomingMessage, configuredToken: string | undefined): void {
+  if (!configuredToken) throw new HttpError(503, "management API is disabled");
+  const authorization = request.headers.authorization;
+  const supplied = authorization?.startsWith("Bearer ") ? authorization.slice("Bearer ".length) : "";
+  const expected = createHash("sha256").update(configuredToken, "utf8").digest();
+  const actual = createHash("sha256").update(supplied, "utf8").digest();
+  if (!timingSafeEqual(actual, expected)) {
+    throw new HttpError(401, "management authorization required");
+  }
+}
+
+function managementStatus(catalog: CatalogRepository, managementEnabled: boolean): Promise<unknown> {
+  return catalog.getCatalog().then((current) => ({
+    status: "ok",
+    market: "rescue",
+    managementEnabled,
+    revision: current.revision,
+    plugins: current.plugins.map((plugin) => ({
+      id: plugin.id,
+      latestVersion: plugin.latestVersion,
+      versions: plugin.versions.map((release) => release.manifest.version)
+    }))
+  }));
 }
 
 function requiredText(value: unknown, field: string, maximum = 4000): string {
@@ -97,6 +176,7 @@ function contentType(filePath: string): string {
   if (filePath.endsWith(".html")) return "text/html; charset=utf-8";
   if (filePath.endsWith(".js")) return "text/javascript; charset=utf-8";
   if (filePath.endsWith(".css")) return "text/css; charset=utf-8";
+  if (filePath.endsWith(".json")) return "application/json; charset=utf-8";
   if (filePath.endsWith(".zip")) return "application/zip";
   return "application/octet-stream";
 }
@@ -124,9 +204,13 @@ export async function createHubServer(options: HubServerOptions = {}): Promise<{
   const rootDirectory = options.rootDirectory ?? ROOT;
   const publicDirectory = options.publicDirectory ?? path.join(rootDirectory, "public");
   const databasePath = options.databasePath ?? path.join(rootDirectory, "data", "comments.db");
+  const releaseDirectory = options.releaseDirectory ?? defaultReleaseDirectory(databasePath);
   const host = options.host ?? "127.0.0.1";
   const port = options.port ?? 20877;
-  const catalog = new CatalogRepository(defaultCatalogPath(rootDirectory));
+  const managementToken = options.managementToken ?? process.env.WUXIANPI_RESCUE_MANAGEMENT_TOKEN;
+  const releaseStore = new ReleaseStore(publicDirectory, releaseDirectory);
+  await releaseStore.initialize();
+  const catalog = new CatalogRepository(releaseStore.catalogPath);
   await catalog.load();
   const comments = new CommentStore(databasePath);
   const mcp = new McpHandler(catalog, comments);
@@ -138,8 +222,8 @@ export async function createHubServer(options: HubServerOptions = {}): Promise<{
       if (request.method === "OPTIONS") {
         response.writeHead(204, {
           "access-control-allow-origin": "*",
-          "access-control-allow-methods": "GET,POST,OPTIONS",
-          "access-control-allow-headers": "content-type,mcp-session-id"
+          "access-control-allow-methods": "GET,POST,PUT,OPTIONS",
+          "access-control-allow-headers": "authorization,content-type,mcp-session-id"
         });
         response.end();
         return;
@@ -149,6 +233,58 @@ export async function createHubServer(options: HubServerOptions = {}): Promise<{
         json(response, 200, { status: "ok", revision: current.revision, plugins: current.plugins.length });
         return;
       }
+
+      if (pathname === "/api/v1/management/status" && request.method === "GET") {
+        requireManagementAccess(request, managementToken);
+        json(response, 200, await managementStatus(catalog, Boolean(managementToken)));
+        return;
+      }
+
+      const releaseUploadMatch = pathname.match(/^\/api\/v1\/management\/plugins\/([^/]+)\/releases\/([^/]+)$/);
+      if (releaseUploadMatch && request.method === "PUT") {
+        requireManagementAccess(request, managementToken);
+        const form = await multipartBody(request);
+        let metadata: unknown;
+        try {
+          metadata = JSON.parse(await formText(form, "metadata"));
+        } catch (error) {
+          if (error instanceof HttpError) throw error;
+          throw new HttpError(400, "metadata must be valid JSON");
+        }
+        const release = validateReleaseMetadata(metadata, releaseUploadMatch[1], releaseUploadMatch[2]);
+        const archive = await formFile(form, "archive");
+        const result = await releaseStore.publish(release, archive);
+        catalog.setCatalog(result.catalog);
+        json(response, result.status === "published" ? 201 : 200, {
+          status: result.status,
+          pluginId: release.manifest.id,
+          version: release.manifest.version,
+          sha256: release.sha256,
+          size: release.size,
+          revision: result.catalog.revision
+        });
+        return;
+      }
+
+      const promoteMatch = pathname.match(/^\/api\/v1\/management\/plugins\/([^/]+)\/promote$/);
+      if (promoteMatch && request.method === "POST") {
+        requireManagementAccess(request, managementToken);
+        const input = await body(request);
+        if (typeof input !== "object" || input === null || Array.isArray(input) || typeof (input as { version?: unknown }).version !== "string") {
+          throw new HttpError(400, "version is required");
+        }
+        const result = await releaseStore.promote(promoteMatch[1], (input as { version: string }).version);
+        catalog.setCatalog(result.catalog);
+        json(response, 200, {
+          status: result.status,
+          pluginId: promoteMatch[1],
+          version: (input as { version: string }).version,
+          latestVersion: result.catalog.plugins.find((plugin) => plugin.id === promoteMatch[1])?.latestVersion,
+          revision: result.catalog.revision
+        });
+        return;
+      }
+
       if (request.method === "GET" && pathname === "/api/v1/plugins") {
         const current = await catalog.getCatalog();
         const plugins = await catalog.search(url.searchParams.get("q") ?? "");
@@ -208,7 +344,7 @@ export async function createHubServer(options: HubServerOptions = {}): Promise<{
       const downloadMatch = pathname.match(/^\/plugins\/([a-z0-9.-]+)\/([0-9A-Za-z.+-]+)\.zip$/);
       if (request.method === "GET" && downloadMatch) {
         if (!await catalog.getRelease(downloadMatch[1], downloadMatch[2])) return json(response, 404, { error: "plugin release not found" });
-        await streamFile(response, path.join(publicDirectory, "plugins", downloadMatch[1], `${downloadMatch[2]}.zip`));
+        await streamFile(response, releaseStore.archivePath(downloadMatch[1], downloadMatch[2]));
         return;
       }
 
@@ -226,7 +362,7 @@ export async function createHubServer(options: HubServerOptions = {}): Promise<{
       }
 
       if (request.method === "GET" && pathname === "/catalog.json") {
-        await streamFile(response, path.join(publicDirectory, "catalog.json"));
+        await streamFile(response, releaseStore.catalogPath);
         return;
       }
 
@@ -241,7 +377,16 @@ export async function createHubServer(options: HubServerOptions = {}): Promise<{
       }
       json(response, 404, { error: "not found" });
     } catch (requestError) {
-      json(response, 400, { error: requestError instanceof Error ? requestError.message : String(requestError) });
+      const status = requestError instanceof HttpError
+        ? requestError.status
+        : requestError instanceof ReleaseConflictError
+          ? 409
+          : requestError instanceof ReleaseNotFoundError
+            ? 404
+            : requestError instanceof ReleaseValidationError
+              ? 400
+              : 400;
+      json(response, status, { error: requestError instanceof Error ? requestError.message : String(requestError) });
     }
   });
 
@@ -269,7 +414,9 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   const instance = await createHubServer({
     host: process.env.HOST ?? "127.0.0.1",
     port: Number(process.env.PORT ?? 20877),
-    databasePath: process.env.DATABASE_PATH
+    databasePath: process.env.DATABASE_PATH,
+    releaseDirectory: process.env.RELEASE_DIRECTORY,
+    managementToken: process.env.WUXIANPI_RESCUE_MANAGEMENT_TOKEN
   });
   const address = await instance.start();
   process.stdout.write(`WuxianPi Rescue listening on http://${address.host}:${address.port}\n`);

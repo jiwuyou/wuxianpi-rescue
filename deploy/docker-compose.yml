@@ -11,6 +11,8 @@ services:
       HOST: 0.0.0.0
       PORT: 20877
       DATABASE_PATH: /data/comments.db
+      RELEASE_DIRECTORY: /data/releases
+      WUXIANPI_RESCUE_MANAGEMENT_TOKEN: ${WUXIANPI_RESCUE_MANAGEMENT_TOKEN:-}
     ports:
       - "127.0.0.1:20877:20877"
     volumes:

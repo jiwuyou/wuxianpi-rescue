@@ -12,6 +12,14 @@ export class CatalogRepository {
     return this.catalog;
   }
 
+  async reload(): Promise<PluginCatalog> {
+    return this.load();
+  }
+
+  setCatalog(catalog: PluginCatalog): void {
+    this.catalog = catalog;
+  }
+
   async getCatalog(): Promise<PluginCatalog> {
     return this.catalog ?? this.load();
   }
