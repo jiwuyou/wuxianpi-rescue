@@ -2,12 +2,12 @@
 set -eu
 
 ROOT="${ROOT:-/opt/wuxianpi-rescue}"
-ENV_FILE="${ENV_FILE:-$ROOT/.env}"
+MARKET_ENV_FILE="${MARKET_ENV_FILE:-$ROOT/deploy/.env}"
 cd "$ROOT"
 git pull --ff-only
 install -d -o 1000 -g 1000 /var/lib/wuxianpi-rescue
-if [ -f "$ENV_FILE" ]; then
-    docker compose --env-file "$ENV_FILE" -f deploy/docker-compose.yml up -d --build
+if [ -f "$MARKET_ENV_FILE" ]; then
+    docker compose --env-file "$MARKET_ENV_FILE" -f deploy/docker-compose.yml up -d --build
 else
     docker compose -f deploy/docker-compose.yml up -d --build
 fi
