@@ -27,18 +27,18 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     assert.ok(firstInstall);
     assert.deepEqual(
       firstInstall.versions.map((candidate) => candidate.manifest.version),
-      ["1.0.3", "1.0.2", "1.0.1", "1.0.0"]
+      ["1.0.4", "1.0.3", "1.0.2", "1.0.1", "1.0.0"]
     );
     assert.equal(
-      firstInstall.versions[3].sha256,
+      firstInstall.versions[4].sha256,
       "791424f96a6d59942e0d8e6ccebe5433fa4fe93e709e80e72fb6b7b30cdbded4"
     );
     assert.equal(
-      firstInstall.versions[2].sha256,
+      firstInstall.versions[3].sha256,
       "0f18af13475719d8b4669a2ed2a3d90c2d4a406488f64a0a0104787a31fd5646"
     );
     const release = firstInstall.versions[0];
-    assert.equal(release.manifest.version, "1.0.3");
+    assert.equal(release.manifest.version, "1.0.4");
     const archive = await readFile(path.join(temporary, "plugins", firstInstall.id, `${release.manifest.version}.zip`));
     assert.equal(archive.subarray(0, 2).toString("binary"), "PK");
     assert.equal(createHash("sha256").update(archive).digest("hex"), release.sha256);
@@ -102,6 +102,14 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     assert.match(String(verify.description), /service-daemon/);
     assert.match(String(verify.description), /unable to change to service directory/);
     assert.match(String(verify.description), /WuxianPi stopped 是正常按需状态/);
+    const controlPlaneStart = workflow.steps.find((step: Record<string, unknown>) => step.id === "start-openhouse-control-plane");
+    const controlPlaneVerify = workflow.steps.find((step: Record<string, unknown>) => step.id === "verify-openhouse-control-plane");
+    assert.equal(controlPlaneStart.tool, "termux_exec_command");
+    assert.match(String(controlPlaneStart.arguments.command), /^\"\$PREFIX\/bin\/bash\" /);
+    assert.match(String(controlPlaneStart.arguments.command), /inspect-control-plane-termux-native\.sh.* start/);
+    assert.equal(controlPlaneVerify.tool, "termux_exec_command");
+    assert.match(String(controlPlaneVerify.arguments.command), /^\"\$PREFIX\/bin\/bash\" /);
+    assert.match(String(controlPlaneVerify.arguments.command), /inspect-control-plane-termux-native\.sh.* inspect/);
     assert.deepEqual(verify.retryPolicy, {
       maxAttempts: 10,
       delayMs: 3000,
@@ -123,6 +131,18 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     assert.match(firstInstallGuide, /Native 返回的命令会解包并调用/);
     assert.match(firstInstallGuide, /All-in-One 返回的命令会调用宿主已暂存的 `\/bin\/wuxianpi-setup`/);
     assert.match(firstInstallGuide, /桌面组件注册/);
+    assert.match(firstInstallGuide, /Android-Termux 控制面/);
+    assert.match(firstInstallGuide, /control_plane_status/);
+    assert.match(firstInstallGuide, /RUN_COMMAND/);
+    assert.match(firstInstallGuide, /service-daemon/);
+    assert.match(firstInstallGuide, /\"\$PREFIX\/bin\/bash\"/);
+    const controlPlaneManifest = JSON.parse(await readFile(
+      path.join(ROOT, "plugins", "official", firstInstall.id, "scripts", "control-plane", "control-plane-manifest.json"),
+      "utf8"
+    ));
+    assert.equal(controlPlaneManifest.bundleId, "openhouse-control-plane");
+    assert.equal(controlPlaneManifest.version, "1.0.0");
+    assert.equal(controlPlaneManifest.files.length, 3);
     const registrationScript = await readFile(
       path.join(ROOT, "plugins", "official", firstInstall.id, "scripts", "register-openhouse-component.sh"),
       "utf8"
@@ -258,14 +278,14 @@ test("preserves immutable historical releases with deterministic SemVer ordering
   }
 });
 
-test("published first-install catalog retains historical releases and promotes 1.0.3", async () => {
+test("published first-install catalog retains historical releases and promotes 1.0.4", async () => {
   const catalog = JSON.parse(await readFile(path.join(ROOT, "public", "catalog.json"), "utf8"));
   const firstInstall = catalog.plugins.find((plugin: { id: string }) => plugin.id === "wuxianpi.first-install");
   assert.ok(firstInstall);
-  assert.equal(firstInstall.latestVersion, "1.0.3");
+  assert.equal(firstInstall.latestVersion, "1.0.4");
   assert.deepEqual(
     firstInstall.versions.map((release: { manifest: { version: string } }) => release.manifest.version),
-    ["1.0.3", "1.0.2", "1.0.1", "1.0.0"]
+    ["1.0.4", "1.0.3", "1.0.2", "1.0.1", "1.0.0"]
   );
 });
 

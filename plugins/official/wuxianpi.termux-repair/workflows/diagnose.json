@@ -5,6 +5,18 @@
   "steps": [
     { "id": "inspect", "kind": "tool", "tool": "inspect_wuxianpi_setup" },
     { "id": "prepare", "kind": "tool", "tool": "prepare_persistent_termux", "description": "准备 tmux 持久命令终端；它不承载正式服务。" },
+    {
+      "id": "inspect-openhouse-control-plane",
+      "kind": "tool",
+      "tool": "termux_exec_command",
+      "arguments": {
+        "command": "script=\"$HOME/.local/share/openhouseai/control-plane/current/inspect-control-plane-termux-native.sh\"; if [ -r \"$script\" ]; then \"$PREFIX/bin/bash\" \"$script\" inspect; else printf 'control_plane_bundle=missing\\ncontrol_plane_recommendation=run-wuxianpi-first-install-1.0.4\\n'; fi",
+        "working_directory": "$HOME",
+        "session_name": "wuxianpi-termux-repair-control-plane",
+        "yield_time_ms": 1000
+      },
+      "description": "诊断 Android 固定入口依赖的 OpenHouse 控制面包；不得因为 yuanshengwuxianpi stopped 而判定 service-manager 损坏。"
+    },
     { "id": "verify", "kind": "tool", "tool": "get_wuxianpi_setup_status", "description": "检查 service-daemon、runsvdir、sv status service-manager 和 20087；忽略 WuxianPi 的正常 stopped 状态。" }
   ]
 }

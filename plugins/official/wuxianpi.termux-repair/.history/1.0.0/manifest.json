@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "id": "wuxianpi.termux-repair",
-  "version": "1.0.1",
+  "version": "1.0.0",
   "name": "Termux 修复",
-  "description": "诊断 Termux 权限、OpenHouse 控制面包与 service-manager 常驻链路。",
+  "description": "诊断 Termux 权限与持久终端，并核对 termux-services 的 service-manager 常驻链路。",
   "category": "repair",
   "minHostVersion": 12,
   "requiredCapabilities": ["termux", "persistent-terminal"],

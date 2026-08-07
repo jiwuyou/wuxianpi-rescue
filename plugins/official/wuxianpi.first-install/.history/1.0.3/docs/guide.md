@@ -1,6 +1,6 @@
 # WuxianPi 首次安装
 
-这个插件根据设备的真实状态继续执行，不维护脆弱的向导进度。再次运行时，已经完成的步骤会被检查并跳过。1.0.3 将旧版桌面组件 ID `pi-agent` 迁移为与服务一致的 `yuanshengwuxianpi`；1.0.4 增加 OpenHouse Android-Termux 控制面包投放与诊断。
+这个插件根据设备的真实状态继续执行，不维护脆弱的向导进度。再次运行时，已经完成的步骤会被检查并跳过。1.0.3 将旧版桌面组件 ID `pi-agent` 迁移为与服务一致的 `yuanshengwuxianpi`。
 
 首次安装除了部署 `yuanshengwuxianpi` 服务，还会注册一个 OpenHouse 桌面组件。服务注册和桌面组件注册是两条独立链路：服务可以已经运行，但如果 `components.d` 没有 `yuanshengwuxianpi`，原生桌面不会显示 WuxianPi 入口。
 
@@ -18,32 +18,12 @@
 5. 测试软件源，只安装 tmux 的必要前置包。
 6. 安装 tmux，建立持久 Termux 终端。
 7. tmux 准备后，所有长命令和后续诊断使用 `termux_exec_command`。
-8. 先投放 OpenHouse 控制面包到 `$HOME/.local/share/openhouseai/control-plane/current/`。其中包含完整启动、修复和诊断脚本，以及 SHA-256 清单；manifest 最后写入，作为完整标记。
-9. 将 APK 随附资源转移到 Termux，并执行 `start_wuxianpi_setup` 针对当前宿主返回的命令。Native 返回的命令会解包并调用 `$HOME/.local/share/wuxianpi/install-resources/current/bootstrap/wuxianpi-setup` 原始脚本；All-in-One 返回的命令会调用宿主已暂存的 `/bin/wuxianpi-setup`。工作流不得自行拼接另一宿主的路径。
-10. 安装 `termux-services`，显式执行 `service-daemon start`，检查 `runsvdir`、`sv status service-manager` 和 `127.0.0.1:20087`。首次 `sv up` 若出现 `unable to change to service directory`，按 3 秒间隔最多重试 10 次 readiness，给 `runsvdir` 留出启动时间。
-11. 安装并注册 service-manager、WuxianPi 和 Ubuntu；暂不安装 AionUI 等可选组件。
-12. WuxianPi 注册为 `yuanshengwuxianpi`，固定使用 `127.0.0.1:20765`，但安装时不默认启动，也不设为常驻。
-13. 使用控制面包的 `start` 和 `inspect` 命令检查 `service-daemon`、`runsvdir`、`sv status service-manager`、带认证的 `20087` API 和脚本完整性。
-14. 读取插件内置的 `scripts/register-openhouse-component.sh`，将 `yuanshengwuxianpi` 写入 OpenHouse registry，并验证 `/api/v1/registry/components` 返回该组件。
-
-## Android-Termux 控制面
-
-Android 不直接启动 service-manager。Native Android 只通过已授权的 `com.termux.RUN_COMMAND` 把固定入口 `openhouse-host/start-control-plane.sh` 提交给 Termux；入口优先调用：
-
-```text
-$HOME/.local/share/openhouseai/control-plane/current/start-control-plane-termux-native.sh
-```
-
-完整脚本才负责读取 canonical config、启动 `service-daemon`、等待 `runsvdir`、执行 `service-manager install-service` 与 `sv up`，最后校验 20087 health 和认证服务列表。控制包缺失时，Android 入口不能恢复服务；1.0.4 会在首次安装时提前投放它。
-
-维修助手的首选诊断命令是：
-
-```sh
-"$PREFIX/bin/bash" \
-  "$HOME/.local/share/openhouseai/control-plane/current/inspect-control-plane-termux-native.sh" inspect
-```
-
-它只输出 `control_plane_*` 状态，不输出 token。`control_plane_status=repair_required` 且 config 已存在时，可执行同一脚本的 `repair`。不要因为 `yuanshengwuxianpi` 正常 stopped 而重装 WuxianPi；那是按需服务的正常状态。
+8. 将 APK 随附资源转移到 Termux，并执行 `start_wuxianpi_setup` 针对当前宿主返回的命令。Native 返回的命令会解包并调用 `$HOME/.local/share/wuxianpi/install-resources/current/bootstrap/wuxianpi-setup` 原始脚本；All-in-One 返回的命令会调用宿主已暂存的 `/bin/wuxianpi-setup`。工作流不得自行拼接另一宿主的路径。
+9. 安装 `termux-services`，显式执行 `service-daemon start`，检查 `runsvdir`、`sv status service-manager` 和 `127.0.0.1:20087`。首次 `sv up` 若出现 `unable to change to service directory`，按 3 秒间隔最多重试 10 次 readiness，给 `runsvdir` 留出启动时间。
+10. 安装并注册 service-manager、WuxianPi 和 Ubuntu；暂不安装 AionUI 等可选组件。
+11. WuxianPi 注册为 `yuanshengwuxianpi`，固定使用 `127.0.0.1:20765`，但安装时不默认启动，也不设为常驻。
+12. 检查终端工具、service-manager 常驻链路、WuxianPi 服务声明和 Ubuntu。只有明确测试模型或打开 WuxianPi 时才按需启动 WuxianPi。
+13. 读取插件内置的 `scripts/register-openhouse-component.sh`，将 `yuanshengwuxianpi` 写入 OpenHouse registry，并验证 `/api/v1/registry/components` 返回该组件。
 
 ## 桌面组件注册
 
@@ -68,7 +48,7 @@ PUT /api/v1/registry/components/yuanshengwuxianpi
 POST /api/v1/registry/sync
 ```
 
-如果 API 暂时不可用，脚本会保留文件 registry，下一次运行时重试 API 同步。新版宿主支持“刷新桌面组件”，注册后返回宿主即可刷新；旧 APK 的 registry 只在进程启动时加载，需要完全退出并重新打开原生 `com.wuxianpi`。
+如果 API 暂时不可用，脚本会保留文件 registry，下一次运行时重试 API 同步。完成注册后需要完全退出并重新打开原生 `com.wuxianpi`，因为桌面 registry 在进程启动时加载。
 
 ### 旧版本迁移
 
@@ -97,5 +77,4 @@ $HOME/.local/share/wuxianpi/plugins/wuxianpi.first-install/migrations/
 - `runsvdir` 启动存在短暂时序窗口，首次 `sv up service-manager` 失败时先等待并重试 readiness，不需要立刻手工修复。
 - 重跑安装必须执行 `start_wuxianpi_setup` 返回的宿主命令。Native 命令从 `install-resources/current/bootstrap/wuxianpi-setup` 原始资源启动；All-in-One 命令使用宿主已暂存的 `/bin/wuxianpi-setup`。
 - 如果服务检查成功但桌面没有 WuxianPi，先运行本插件的组件注册步骤，再检查 `$HOME/.config/openhouseai/components.d/yuanshengwuxianpi.json` 和 `/api/v1/registry/components`；不要重复安装 `yuanshengwuxianpi`。
-- 已安装设备更新到 1.0.4 后，重新运行首次安装工作流即可补齐控制面包并完成旧 `pi-agent` 清单迁移；不需要重装服务或重新构建 APK。
-- Android 显示“service-manager 不可达”且 `runsvdir` 未运行时，先执行控制面 `inspect`；如果发现 `control_plane_bundle_*` 缺失，更新到 1.0.4 后重新运行本工作流投放控制包，再执行 `start` 或 `repair`，不要只反复点击 Android 按钮。
+- 已安装设备更新到 1.0.3 后，重新运行首次安装工作流即可完成旧 `pi-agent` 清单迁移；不需要重装服务或重新构建 APK。

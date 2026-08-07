@@ -42,118 +42,6 @@
       "description": "先测试软件源，再安装 tmux 的最小前置依赖并建立持久终端。"
     },
     {
-      "id": "read-control-plane-start-script",
-      "kind": "tool",
-      "tool": "read_rescue_plugin_document",
-      "arguments": {
-        "pluginId": "wuxianpi.first-install",
-        "path": "scripts/control-plane/start-control-plane-termux-native.sh"
-      },
-      "description": "读取版本化的 OpenHouse 控制面启动脚本；Android 侧固定入口会调用这个 Termux 脚本。"
-    },
-    {
-      "id": "read-control-plane-repair-script",
-      "kind": "tool",
-      "tool": "read_rescue_plugin_document",
-      "arguments": {
-        "pluginId": "wuxianpi.first-install",
-        "path": "scripts/control-plane/repair-control-plane-termux-native.sh"
-      },
-      "description": "读取控制面受控修复脚本。"
-    },
-    {
-      "id": "read-control-plane-inspect-script",
-      "kind": "tool",
-      "tool": "read_rescue_plugin_document",
-      "arguments": {
-        "pluginId": "wuxianpi.first-install",
-        "path": "scripts/control-plane/inspect-control-plane-termux-native.sh"
-      },
-      "description": "读取控制面诊断脚本，供维修助手输出结构化检查结果。"
-    },
-    {
-      "id": "read-control-plane-manifest",
-      "kind": "tool",
-      "tool": "read_rescue_plugin_document",
-      "arguments": {
-        "pluginId": "wuxianpi.first-install",
-        "path": "scripts/control-plane/control-plane-manifest.json"
-      },
-      "description": "读取控制面包校验清单；它必须最后写入 Termux，作为完整投放标记。"
-    },
-    {
-      "id": "prepare-control-plane-directory",
-      "kind": "tool",
-      "tool": "termux_exec_command",
-      "arguments": {
-        "command": "mkdir -p \"$HOME/.local/share/openhouseai/control-plane/current\"",
-        "working_directory": "$HOME",
-        "session_name": "openhouse-control-plane-stage",
-        "yield_time_ms": 1000
-      },
-      "description": "准备由 OpenHouse 管理的控制面目录，不覆盖旧 bootstrap 或用户目录。"
-    },
-    {
-      "id": "write-control-plane-start-script",
-      "kind": "tool-from-result",
-      "tool": "write_file",
-      "sourceStep": "read-control-plane-start-script",
-      "arguments": {
-        "environment": "repo:termux-home",
-        "path": ".local/share/openhouseai/control-plane/current/start-control-plane-termux-native.sh",
-        "content": "{{steps.read-control-plane-start-script.content}}"
-      },
-      "description": "投放控制面启动脚本。"
-    },
-    {
-      "id": "write-control-plane-repair-script",
-      "kind": "tool-from-result",
-      "tool": "write_file",
-      "sourceStep": "read-control-plane-repair-script",
-      "arguments": {
-        "environment": "repo:termux-home",
-        "path": ".local/share/openhouseai/control-plane/current/repair-control-plane-termux-native.sh",
-        "content": "{{steps.read-control-plane-repair-script.content}}"
-      },
-      "description": "投放控制面修复脚本。"
-    },
-    {
-      "id": "write-control-plane-inspect-script",
-      "kind": "tool-from-result",
-      "tool": "write_file",
-      "sourceStep": "read-control-plane-inspect-script",
-      "arguments": {
-        "environment": "repo:termux-home",
-        "path": ".local/share/openhouseai/control-plane/current/inspect-control-plane-termux-native.sh",
-        "content": "{{steps.read-control-plane-inspect-script.content}}"
-      },
-      "description": "投放控制面诊断脚本。"
-    },
-    {
-      "id": "write-control-plane-manifest",
-      "kind": "tool-from-result",
-      "tool": "write_file",
-      "sourceStep": "read-control-plane-manifest",
-      "arguments": {
-        "environment": "repo:termux-home",
-        "path": ".local/share/openhouseai/control-plane/current/control-plane-manifest.json",
-        "content": "{{steps.read-control-plane-manifest.content}}"
-      },
-      "description": "最后写入控制面 manifest，使 Native Android 入口和维修助手都能识别完整包。"
-    },
-    {
-      "id": "make-control-plane-scripts-executable",
-      "kind": "tool",
-      "tool": "termux_exec_command",
-      "arguments": {
-        "command": "chmod 700 \"$HOME/.local/share/openhouseai/control-plane/current/\"*-control-plane-termux-native.sh",
-        "working_directory": "$HOME",
-        "session_name": "openhouse-control-plane-stage",
-        "yield_time_ms": 1000
-      },
-      "description": "收紧控制面脚本权限；脚本只读取 canonical config，绝不输出 token。"
-    },
-    {
       "id": "stage-setup",
       "kind": "tool",
       "tool": "start_wuxianpi_setup",
@@ -189,30 +77,6 @@
         ]
       },
       "description": "轮询安装状态，并检查 service-daemon、runsvdir、sv status service-manager、20087、WuxianPi 服务声明、Ubuntu 和终端能力。termux-services 首次启动可能存在 runsvdir 时序窗口；遇到 unable to change to service directory 或暂时不可达时，按 retryPolicy 等待后重试 readiness，不要立即判定安装失败。WuxianPi stopped 是正常按需状态。"
-    },
-    {
-      "id": "start-openhouse-control-plane",
-      "kind": "tool",
-      "tool": "termux_exec_command",
-      "arguments": {
-        "command": "\"$PREFIX/bin/bash\" \"$HOME/.local/share/openhouseai/control-plane/current/inspect-control-plane-termux-native.sh\" start",
-        "working_directory": "$HOME",
-        "session_name": "openhouse-control-plane-start",
-        "yield_time_ms": 1000
-      },
-      "description": "通过与 Android 固定入口相同的完整 Termux 控制脚本启动 service-manager；它会先确保 service-daemon/runsvdir，再验证带认证的 20087 API。"
-    },
-    {
-      "id": "verify-openhouse-control-plane",
-      "kind": "tool",
-      "tool": "termux_exec_command",
-      "arguments": {
-        "command": "\"$PREFIX/bin/bash\" \"$HOME/.local/share/openhouseai/control-plane/current/inspect-control-plane-termux-native.sh\" inspect",
-        "working_directory": "$HOME",
-        "session_name": "openhouse-control-plane-inspect",
-        "yield_time_ms": 1000
-      },
-      "description": "输出 control_plane_* 结构化状态。若 bundle、runsvdir、服务定义或认证 health 任一项失败，维修助手应依据 recommendation 使用 repair，而不是重复安装 WuxianPi。"
     },
     {
       "id": "read-openhouse-registration-script",
@@ -270,7 +134,7 @@
         "session_name": "wuxianpi-openhouse-component-verify",
         "yield_time_ms": 1000
       },
-      "description": "验证 components.d/yuanshengwuxianpi.json 和 service-manager registry API；新版宿主返回后可刷新桌面组件，旧 APK 才需要完全退出并重新打开。"
+      "description": "验证 components.d/yuanshengwuxianpi.json 和 service-manager registry API；完成后提示重启原生 App 以重新加载桌面目录。"
     }
   ]
 }
