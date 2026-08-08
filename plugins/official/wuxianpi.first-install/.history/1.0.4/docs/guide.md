@@ -1,8 +1,6 @@
 # WuxianPi 首次安装
 
-这个插件根据设备的真实状态继续执行，不维护脆弱的向导进度。再次运行时，已经完成的步骤会被检查并跳过。1.0.3 将旧版桌面组件 ID `pi-agent` 迁移为与服务一致的 `yuanshengwuxianpi`；1.0.4 增加 OpenHouse Android-Termux 控制面包投放与诊断；1.0.5 在任何安装动作前检查并更新首次安装插件自身。
-
-首次安装插件自身也有独立版本。工作流开始时会先读取市场上的 `wuxianpi.first-install`，只有发现兼容且更高版本才下载、校验并原子激活；网络不可用或更新失败时继续使用已安装版本或 APK 内置版本，不会阻塞首次安装。
+这个插件根据设备的真实状态继续执行，不维护脆弱的向导进度。再次运行时，已经完成的步骤会被检查并跳过。1.0.3 将旧版桌面组件 ID `pi-agent` 迁移为与服务一致的 `yuanshengwuxianpi`；1.0.4 增加 OpenHouse Android-Termux 控制面包投放与诊断。
 
 首次安装除了部署 `yuanshengwuxianpi` 服务，还会注册一个 OpenHouse 桌面组件。服务注册和桌面组件注册是两条独立链路：服务可以已经运行，但如果 `components.d` 没有 `yuanshengwuxianpi`，原生桌面不会显示 WuxianPi 入口。
 

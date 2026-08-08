@@ -16,6 +16,12 @@ import {
   ReleaseValidationError,
   validateReleaseMetadata
 } from "./release-store.js";
+import {
+  ResourceConflictError,
+  ResourceStore,
+  ResourceValidationError,
+  validateResourceMetadata
+} from "./resource-store.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -134,18 +140,30 @@ function requireManagementAccess(request: IncomingMessage, configuredToken: stri
   }
 }
 
-function managementStatus(catalog: CatalogRepository, managementEnabled: boolean): Promise<unknown> {
-  return catalog.getCatalog().then((current) => ({
+async function managementStatus(
+  catalog: CatalogRepository,
+  resourceStore: ResourceStore,
+  managementEnabled: boolean,
+): Promise<unknown> {
+  const current = await catalog.getCatalog();
+  const resources = await resourceStore.readCatalog();
+  return {
     status: "ok",
     market: "rescue",
     managementEnabled,
     revision: current.revision,
+    resourceRevision: resources.revision,
+    resources: resources.resources.map((resource) => ({
+      id: resource.id,
+      latestVersion: resource.version,
+      archive: resource.archive
+    })),
     plugins: current.plugins.map((plugin) => ({
       id: plugin.id,
       latestVersion: plugin.latestVersion,
       versions: plugin.versions.map((release) => release.manifest.version)
     }))
-  }));
+  };
 }
 
 function requiredText(value: unknown, field: string, maximum = 4000): string {
@@ -210,6 +228,8 @@ export async function createHubServer(options: HubServerOptions = {}): Promise<{
   const managementToken = options.managementToken ?? process.env.WUXIANPI_RESCUE_MANAGEMENT_TOKEN;
   const releaseStore = new ReleaseStore(publicDirectory, releaseDirectory);
   await releaseStore.initialize();
+  const resourceStore = new ResourceStore(publicDirectory, releaseDirectory);
+  await resourceStore.initialize();
   const catalog = new CatalogRepository(releaseStore.catalogPath);
   await catalog.load();
   const comments = new CommentStore(databasePath);
@@ -236,7 +256,38 @@ export async function createHubServer(options: HubServerOptions = {}): Promise<{
 
       if (pathname === "/api/v1/management/status" && request.method === "GET") {
         requireManagementAccess(request, managementToken);
-        json(response, 200, await managementStatus(catalog, Boolean(managementToken)));
+        json(response, 200, await managementStatus(catalog, resourceStore, Boolean(managementToken)));
+        return;
+      }
+
+      if (request.method === "GET" && pathname === "/api/v1/resources") {
+        const current = await resourceStore.readCatalog();
+        json(response, 200, current, { etag: `"${current.revision}"` });
+        return;
+      }
+
+      const resourceUploadMatch = pathname.match(/^\/api\/v1\/management\/resources\/([^/]+)\/releases\/([^/]+)$/);
+      if (resourceUploadMatch && request.method === "PUT") {
+        requireManagementAccess(request, managementToken);
+        const form = await multipartBody(request);
+        let metadata: unknown;
+        try {
+          metadata = JSON.parse(await formText(form, "metadata"));
+        } catch (error) {
+          if (error instanceof HttpError) throw error;
+          throw new HttpError(400, "metadata must be valid JSON");
+        }
+        const resource = validateResourceMetadata(metadata, resourceUploadMatch[1], resourceUploadMatch[2]);
+        const archive = await formFile(form, "archive");
+        const result = await resourceStore.publish(resource, archive);
+        json(response, result.status === "published" ? 201 : 200, {
+          status: result.status,
+          resourceId: resource.id,
+          version: resource.version,
+          sha256: resource.sha256,
+          size: resource.size,
+          revision: result.catalog.revision
+        });
         return;
       }
 
@@ -348,6 +399,16 @@ export async function createHubServer(options: HubServerOptions = {}): Promise<{
         return;
       }
 
+      const resourceDownloadMatch = pathname.match(/^\/resources\/([a-z0-9.-]+)\/([0-9A-Za-z.+-]+)\/([a-z0-9._-]+\.tgz)$/);
+      if (request.method === "GET" && resourceDownloadMatch) {
+        const current = await resourceStore.readCatalog();
+        const resource = current.resources.find((candidate) =>
+          candidate.id === resourceDownloadMatch[1] && candidate.version === resourceDownloadMatch[2] && candidate.archive === resourceDownloadMatch[3]);
+        if (!resource) return json(response, 404, { error: "resource release not found" });
+        await streamFile(response, resourceStore.archivePath(resource.id, resource.version, resource.archive));
+        return;
+      }
+
       if (request.method === "POST" && pathname === "/mcp") {
         const rpc = await mcp.handle(await body(request) as Parameters<McpHandler["handle"]>[0]);
         if (rpc === null) {
@@ -363,6 +424,10 @@ export async function createHubServer(options: HubServerOptions = {}): Promise<{
 
       if (request.method === "GET" && pathname === "/catalog.json") {
         await streamFile(response, releaseStore.catalogPath);
+        return;
+      }
+      if (request.method === "GET" && pathname === "/resources.json") {
+        await streamFile(response, resourceStore.catalogPath);
         return;
       }
 
@@ -383,9 +448,11 @@ export async function createHubServer(options: HubServerOptions = {}): Promise<{
           ? 409
           : requestError instanceof ReleaseNotFoundError
             ? 404
-            : requestError instanceof ReleaseValidationError
-              ? 400
-              : 400;
+        : requestError instanceof ReleaseValidationError || requestError instanceof ResourceValidationError
+          ? 400
+          : requestError instanceof ResourceConflictError
+            ? 409
+          : 400;
       json(response, status, { error: requestError instanceof Error ? requestError.message : String(requestError) });
     }
   });

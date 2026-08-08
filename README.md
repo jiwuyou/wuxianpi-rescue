@@ -24,6 +24,8 @@ npm start
 6. 拒绝覆盖内容或 SHA-256 已变化的同版本发布；
 7. 按 SemVer 稳定排序并生成 `public/catalog.json`。
 
+资源包与插件包分开管理。资源目录通过单独的 `public/resources.json` 与 `/resources/...` 下载地址发布，管理 API 使用 `PUT /api/v1/management/resources/:resourceId/releases/:version`。`wuxianpi.resource-update` 负责把资源包同步到终端，`wuxianpi.first-install` 只负责首次安装初始化和它自己的版本更新。
+
 插件发布后不可覆盖同一版本。内容有任何变化都必须递增 `manifest.json` 的 `version`；完全相同的重复构建可以通过。
 
 ```bash
@@ -40,6 +42,8 @@ GET  /api/v1/plugins/:id/versions
 GET  /api/v1/plugins/:id/comments?version=
 POST /api/v1/plugins/:id/comments
 POST /api/v1/comments/:id/replies
+GET  /api/v1/resources
+GET  /resources/:id/:version/:archive
 GET  /plugins/:id/:version.zip
 GET  /docs/raw/:id/:version/:path
 POST /mcp

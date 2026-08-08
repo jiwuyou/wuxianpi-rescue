@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "wuxianpi.resource-update.update",
+  "title": "更新 APK 资源",
+  "executionPolicy": { "beforePersistentTermux": "execute_termux_command", "afterPersistentTermux": "termux_exec_command" },
+  "steps": [
+    { "id": "prepare", "kind": "tool", "tool": "prepare_persistent_termux", "description": "准备资源更新所需的持久 Termux 命令通道。" },
+    { "id": "read-script", "kind": "tool", "tool": "read_rescue_plugin_document", "arguments": { "pluginId": "wuxianpi.resource-update", "path": "scripts/update-resources.sh" }, "description": "读取当前市场版本的资源更新脚本。" },
+    { "id": "write-script", "kind": "tool-from-result", "tool": "write_file", "sourceStep": "read-script", "arguments": { "environment": "repo:termux-home", "path": ".local/share/wuxianpi/plugins/wuxianpi.resource-update/update-resources.sh", "content": "{{steps.read-script.content}}" }, "description": "写入版本化资源更新脚本。" },
+    { "id": "run", "kind": "tool", "tool": "termux_exec_command", "arguments": { "command": "chmod 700 \"$HOME/.local/share/wuxianpi/plugins/wuxianpi.resource-update/update-resources.sh\" && \"$HOME/.local/share/wuxianpi/plugins/wuxianpi.resource-update/update-resources.sh\"", "working_directory": "$HOME", "session_name": "wuxianpi-resource-update", "yield_time_ms": 1000 }, "description": "优先使用市场资源，失败时使用 APK 离线资源；校验失败不替换当前版本。" }
+  ]
+}

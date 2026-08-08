@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "wuxianpi.first-install",
-  "version": "1.0.5",
+  "version": "1.0.4",
   "name": "首次安装",
   "description": "完成 Termux、可自愈的 OpenHouse 控制面、按需 WuxianPi、桌面组件注册与 Ubuntu 初始化。",
   "category": "setup",

@@ -29,10 +29,10 @@ test("serves catalog, downloads and persistent versioned comments", async () => 
     assert.ok(catalog.plugins.some((plugin: { id: string }) => plugin.id === "wuxianpi.termux-repair"));
 
     const detail = await (await fetch(`${base}/api/v1/plugins/wuxianpi.first-install`)).json();
-    assert.equal(detail.latestVersion, "1.0.4");
+    assert.equal(detail.latestVersion, "1.0.5");
     assert.deepEqual(
       detail.versions.map((release: { manifest: { version: string } }) => release.manifest.version),
-      ["1.0.4", "1.0.3", "1.0.2", "1.0.1", "1.0.0"]
+      ["1.0.5", "1.0.4", "1.0.3", "1.0.2", "1.0.1", "1.0.0"]
     );
     const release = detail.versions[0];
     const download = await fetch(`${base}${release.downloadUrl}`);
@@ -75,6 +75,48 @@ test("serves catalog, downloads and persistent versioned comments", async () => 
     const comments = await (await fetch(`${base}/api/v1/plugins/wuxianpi.first-install/comments?version=1.0.0`)).json();
     assert.equal(comments.comments.length, 2);
     assert.deepEqual(comments.comments[0].environment, { android: "14", termux: "0.118" });
+  } finally {
+    await instance.close();
+    await rm(temporary, { recursive: true, force: true });
+  }
+});
+
+test("serves and publishes resources immutably", async () => {
+  const temporary = await mkdtemp(path.join(os.tmpdir(), "wuxianpi-resources-"));
+  const databasePath = path.join(temporary, "comments.db");
+  const token = "resource-management-token";
+  const instance = await createHubServer({ rootDirectory: ROOT, databasePath, releaseDirectory: path.join(temporary, "releases"), managementToken: token, port: 0 });
+  const address = await instance.start();
+  const base = `http://${address.host}:${address.port}`;
+  try {
+    const catalog = await (await fetch(`${base}/api/v1/resources`)).json() as { resources: unknown[] };
+    assert.deepEqual(catalog.resources, []);
+
+    const archive = Buffer.from("resource-fixture");
+    const metadata = {
+      id: "openhouse-runtime",
+      version: "1.0.0",
+      archive: "runtime-aarch64.tgz",
+      compression: "gzip",
+      abi: "arm64-v8a",
+      size: archive.length,
+      sha256: (await import("node:crypto")).createHash("sha256").update(archive).digest("hex"),
+      url: "/resources/openhouse-runtime/1.0.0/runtime-aarch64.tgz",
+      mirrors: []
+    };
+    const form = new FormData();
+    form.set("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }), "metadata.json");
+    form.set("archive", new Blob([new Uint8Array(archive)], { type: "application/gzip" }), "runtime-aarch64.tgz");
+    const published = await fetch(`${base}/api/v1/management/resources/openhouse-runtime/releases/1.0.0`, {
+      method: "PUT",
+      headers: { authorization: `Bearer ${token}` },
+      body: form
+    });
+    assert.equal(published.status, 201);
+    assert.equal((await published.json()).status, "published");
+    assert.equal((await fetch(`${base}/resources/openhouse-runtime/1.0.0/runtime-aarch64.tgz`)).status, 200);
+    const detail = await (await fetch(`${base}/api/v1/resources`)).json() as { resources: Array<{ id: string; version: string }> };
+    assert.deepEqual(detail.resources.map((resource) => `${resource.id}@${resource.version}`), ["openhouse-runtime@1.0.0"]);
   } finally {
     await instance.close();
     await rm(temporary, { recursive: true, force: true });

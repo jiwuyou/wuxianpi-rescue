@@ -81,6 +81,7 @@ test("management API publishes immutably and survives restart", async () => {
     assert.equal(status.status, 200);
     const statusPayload = await status.json() as { market: string; revision: string };
     assert.equal(statusPayload.market, "rescue");
+    assert.ok(Array.isArray((statusPayload as { resources?: unknown[] }).resources));
 
     const archive = archiveFor("1.1.0");
     const release = releaseFor("1.1.0", archive);

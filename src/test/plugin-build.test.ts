@@ -18,6 +18,7 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     const pluginIds = new Set(catalog.plugins.map((plugin) => plugin.id));
     for (const requiredId of [
       "wuxianpi.first-install",
+      "wuxianpi.resource-update",
       "wuxianpi.openhouse-small-app-guide",
       "wuxianpi.service-manager"
     ]) {
@@ -27,18 +28,14 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     assert.ok(firstInstall);
     assert.deepEqual(
       firstInstall.versions.map((candidate) => candidate.manifest.version),
-      ["1.0.4", "1.0.3", "1.0.2", "1.0.1", "1.0.0"]
+      ["1.0.5", "1.0.4", "1.0.3", "1.0.2", "1.0.1", "1.0.0"]
     );
-    assert.equal(
-      firstInstall.versions[4].sha256,
-      "791424f96a6d59942e0d8e6ccebe5433fa4fe93e709e80e72fb6b7b30cdbded4"
-    );
-    assert.equal(
-      firstInstall.versions[3].sha256,
-      "0f18af13475719d8b4669a2ed2a3d90c2d4a406488f64a0a0104787a31fd5646"
-    );
+    assert.equal(firstInstall.versions.find((candidate) => candidate.manifest.version === "1.0.1")?.sha256,
+      "0f18af13475719d8b4669a2ed2a3d90c2d4a406488f64a0a0104787a31fd5646");
+    assert.equal(firstInstall.versions.find((candidate) => candidate.manifest.version === "1.0.0")?.sha256,
+      "791424f96a6d59942e0d8e6ccebe5433fa4fe93e709e80e72fb6b7b30cdbded4");
     const release = firstInstall.versions[0];
-    assert.equal(release.manifest.version, "1.0.4");
+    assert.equal(release.manifest.version, "1.0.5");
     const archive = await readFile(path.join(temporary, "plugins", firstInstall.id, `${release.manifest.version}.zip`));
     assert.equal(archive.subarray(0, 2).toString("binary"), "PK");
     assert.equal(createHash("sha256").update(archive).digest("hex"), release.sha256);
@@ -278,14 +275,14 @@ test("preserves immutable historical releases with deterministic SemVer ordering
   }
 });
 
-test("published first-install catalog retains historical releases and promotes 1.0.4", async () => {
+test("published first-install catalog retains historical releases and promotes 1.0.5", async () => {
   const catalog = JSON.parse(await readFile(path.join(ROOT, "public", "catalog.json"), "utf8"));
   const firstInstall = catalog.plugins.find((plugin: { id: string }) => plugin.id === "wuxianpi.first-install");
   assert.ok(firstInstall);
-  assert.equal(firstInstall.latestVersion, "1.0.4");
+  assert.equal(firstInstall.latestVersion, "1.0.5");
   assert.deepEqual(
     firstInstall.versions.map((release: { manifest: { version: string } }) => release.manifest.version),
-    ["1.0.4", "1.0.3", "1.0.2", "1.0.1", "1.0.0"]
+    ["1.0.5", "1.0.4", "1.0.3", "1.0.2", "1.0.1", "1.0.0"]
   );
 });
 
