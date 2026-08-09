@@ -28,14 +28,14 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     assert.ok(firstInstall);
     assert.deepEqual(
       firstInstall.versions.map((candidate) => candidate.manifest.version),
-      ["1.0.5", "1.0.4", "1.0.3", "1.0.2", "1.0.1", "1.0.0"]
+      ["1.0.6", "1.0.5", "1.0.4", "1.0.3", "1.0.2", "1.0.1", "1.0.0"]
     );
     assert.equal(firstInstall.versions.find((candidate) => candidate.manifest.version === "1.0.1")?.sha256,
       "0f18af13475719d8b4669a2ed2a3d90c2d4a406488f64a0a0104787a31fd5646");
     assert.equal(firstInstall.versions.find((candidate) => candidate.manifest.version === "1.0.0")?.sha256,
       "791424f96a6d59942e0d8e6ccebe5433fa4fe93e709e80e72fb6b7b30cdbded4");
     const release = firstInstall.versions[0];
-    assert.equal(release.manifest.version, "1.0.5");
+    assert.equal(release.manifest.version, "1.0.6");
     const archive = await readFile(path.join(temporary, "plugins", firstInstall.id, `${release.manifest.version}.zip`));
     assert.equal(archive.subarray(0, 2).toString("binary"), "PK");
     assert.equal(createHash("sha256").update(archive).digest("hex"), release.sha256);
@@ -90,23 +90,21 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     assert.equal(runCommand.when, "runtimeHost.externalTermux");
     assert.match(String(runCommand.description), /allow-external-apps = true/);
     assert.match(String(runSetupNative.description), /install-resources\/current\/bootstrap\/wuxianpi-setup/);
-    assert.match(String(runSetupNative.description), /绝不能.*\$PREFIX\/bin\/wuxianpi-setup/);
     assert.equal(runSetupEmbedded.arguments, undefined);
     assert.match(String(runSetupEmbedded.description), /stage-setup 返回/);
     assert.doesNotMatch(String(runSetupEmbedded.description), /\.local\/share\/wuxianpi\/install-resources/);
     assert.equal(workflow.executionPolicy.afterPersistentTermux, "termux_exec_command");
     assert.equal(workflow.executionPolicy.longRunningCommands, "termux_exec_command");
-    assert.match(String(verify.description), /service-daemon/);
-    assert.match(String(verify.description), /unable to change to service directory/);
-    assert.match(String(verify.description), /WuxianPi stopped 是正常按需状态/);
+    assert.match(String(verify.description), /资源集合/);
     const controlPlaneStart = workflow.steps.find((step: Record<string, unknown>) => step.id === "start-openhouse-control-plane");
-    const controlPlaneVerify = workflow.steps.find((step: Record<string, unknown>) => step.id === "verify-openhouse-control-plane");
+    const resourceSetVerify = workflow.steps.find((step: Record<string, unknown>) => step.id === "verify-resource-set");
+    const resourceUpdaterCheck = workflow.steps.find((step: Record<string, unknown>) => step.id === "prepare-resource-updater");
     assert.equal(controlPlaneStart.tool, "termux_exec_command");
     assert.match(String(controlPlaneStart.arguments.command), /^\"\$PREFIX\/bin\/bash\" /);
     assert.match(String(controlPlaneStart.arguments.command), /inspect-control-plane-termux-native\.sh.* start/);
-    assert.equal(controlPlaneVerify.tool, "termux_exec_command");
-    assert.match(String(controlPlaneVerify.arguments.command), /^\"\$PREFIX\/bin\/bash\" /);
-    assert.match(String(controlPlaneVerify.arguments.command), /inspect-control-plane-termux-native\.sh.* inspect/);
+    assert.equal(resourceSetVerify.tool, "termux_exec_command");
+    assert.match(String(resourceSetVerify.arguments.command), /update-resources\.sh\" verify/);
+    assert.ok(workflow.steps.indexOf(stageSetup) < workflow.steps.indexOf(resourceUpdaterCheck));
     assert.deepEqual(verify.retryPolicy, {
       maxAttempts: 10,
       delayMs: 3000,
@@ -121,25 +119,13 @@ test("builds validated deterministic plugin releases and catalog", async () => {
       path.join(ROOT, "plugins", "official", firstInstall.id, "docs", "guide.md"),
       "utf8"
     );
-    assert.match(firstInstallGuide, /residentByDefault.*false/);
-    assert.match(firstInstallGuide, /tmux.*不是正式服务的生命周期所有者/);
-    assert.match(firstInstallGuide, /allow-external-apps = true/);
-    assert.match(firstInstallGuide, /3 秒间隔最多重试 10 次/);
-    assert.match(firstInstallGuide, /Native 返回的命令会解包并调用/);
-    assert.match(firstInstallGuide, /All-in-One 返回的命令会调用宿主已暂存的 `\/bin\/wuxianpi-setup`/);
+    assert.match(firstInstallGuide, /wuxianpi\.resource-update 2\.0\.0/);
+    assert.match(firstInstallGuide, /当前安装、下载缓存或 APK 内置资源/);
+    assert.match(firstInstallGuide, /All-in-One 与 Native 使用相同资源 ID、版本和 SHA-256/);
     assert.match(firstInstallGuide, /桌面组件注册/);
     assert.match(firstInstallGuide, /Android-Termux 控制面/);
-    assert.match(firstInstallGuide, /control_plane_status/);
     assert.match(firstInstallGuide, /RUN_COMMAND/);
     assert.match(firstInstallGuide, /service-daemon/);
-    assert.match(firstInstallGuide, /\"\$PREFIX\/bin\/bash\"/);
-    const controlPlaneManifest = JSON.parse(await readFile(
-      path.join(ROOT, "plugins", "official", firstInstall.id, "scripts", "control-plane", "control-plane-manifest.json"),
-      "utf8"
-    ));
-    assert.equal(controlPlaneManifest.bundleId, "openhouse-control-plane");
-    assert.equal(controlPlaneManifest.version, "1.0.0");
-    assert.equal(controlPlaneManifest.files.length, 3);
     const registrationScript = await readFile(
       path.join(ROOT, "plugins", "official", firstInstall.id, "scripts", "register-openhouse-component.sh"),
       "utf8"
@@ -154,6 +140,18 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     assert.match(registrationScript, /components\.d/);
     assert.match(registrationScript, /components\.d\/\$COMPONENT_ID\.json/);
     assert.match(registrationScript, /\.local\/share\/wuxianpi\/plugins\/wuxianpi\.first-install\/migrations/);
+
+    const resourceUpdate = catalog.plugins.find((plugin) => plugin.id === "wuxianpi.resource-update");
+    assert.ok(resourceUpdate);
+    assert.equal(resourceUpdate.latestVersion, "2.0.0");
+    const resourceUpdateScript = await readFile(
+      path.join(ROOT, "plugins", "official", resourceUpdate.id, "scripts", "update-resources.sh"),
+      "utf8"
+    );
+    assert.match(resourceUpdateScript, /openhouse-core-stack/);
+    assert.match(resourceUpdateScript, /CORE_RESOURCE_IDS/);
+    assert.match(resourceUpdateScript, /receipt_valid/);
+    assert.match(resourceUpdateScript, /OPENHOUSEAI_ALLOW_DOWNGRADE=1/);
 
     const serviceManagerGuide = await readFile(
       path.join(ROOT, "plugins", "official", "wuxianpi.service-manager", "docs", "guide.md"),
@@ -275,14 +273,14 @@ test("preserves immutable historical releases with deterministic SemVer ordering
   }
 });
 
-test("published first-install catalog retains historical releases and promotes 1.0.5", async () => {
+test("published first-install catalog retains historical releases and promotes 1.0.6", async () => {
   const catalog = JSON.parse(await readFile(path.join(ROOT, "public", "catalog.json"), "utf8"));
   const firstInstall = catalog.plugins.find((plugin: { id: string }) => plugin.id === "wuxianpi.first-install");
   assert.ok(firstInstall);
-  assert.equal(firstInstall.latestVersion, "1.0.5");
+  assert.equal(firstInstall.latestVersion, "1.0.6");
   assert.deepEqual(
     firstInstall.versions.map((release: { manifest: { version: string } }) => release.manifest.version),
-    ["1.0.5", "1.0.4", "1.0.3", "1.0.2", "1.0.1", "1.0.0"]
+    ["1.0.6", "1.0.5", "1.0.4", "1.0.3", "1.0.2", "1.0.1", "1.0.0"]
   );
 });
 

@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "id": "wuxianpi.resource-update",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "name": "APK 资源更新",
-  "description": "检查并应用 APK 内置或维修助手市场发布的独立资源包，支持校验、原子切换和离线回退。",
+  "description": "将五个核心资源收敛到经过验证的资源集合，仅下载缺失或不一致内容，并支持事务回滚。",
   "category": "update",
   "minHostVersion": 12,
   "requiredCapabilities": ["setup-tools", "termux", "persistent-terminal"],

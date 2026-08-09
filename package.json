@@ -13,6 +13,7 @@
     "dev": "npm run build && node --watch dist/server.js",
     "publish:market": "scripts/publish-market-via-api.sh",
     "publish:resource": "scripts/publish-resource-via-api.sh",
+    "publish:resource-set": "scripts/publish-resource-set-via-api.sh",
     "start": "node dist/server.js",
     "test": "npm run build && node --test --test-concurrency=1 dist/test/*.test.js"
   },

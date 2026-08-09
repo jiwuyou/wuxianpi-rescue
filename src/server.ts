@@ -18,9 +18,11 @@ import {
 } from "./release-store.js";
 import {
   ResourceConflictError,
+  ResourceNotFoundError,
   ResourceStore,
   ResourceValidationError,
-  validateResourceMetadata
+  validateResourceMetadata,
+  validateResourceSetMetadata
 } from "./resource-store.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -106,7 +108,7 @@ async function multipartBody(request: IncomingMessage): Promise<FormData> {
   if (!normalizedContentType?.toLowerCase().startsWith("multipart/form-data;")) {
     throw new HttpError(415, "management upload requires multipart/form-data");
   }
-  const payload = await requestBytes(request, 32 * 1024 * 1024);
+  const payload = await requestBytes(request, 64 * 1024 * 1024);
   try {
     return await new Response(new Uint8Array(payload), { headers: { "content-type": normalizedContentType } }).formData();
   } catch {
@@ -147,16 +149,23 @@ async function managementStatus(
 ): Promise<unknown> {
   const current = await catalog.getCatalog();
   const resources = await resourceStore.readCatalog();
+  const resourceSets = await resourceStore.readResourceSetCatalog();
   return {
     status: "ok",
     market: "rescue",
     managementEnabled,
     revision: current.revision,
     resourceRevision: resources.revision,
+    resourceSetRevision: resourceSets.revision,
     resources: resources.resources.map((resource) => ({
       id: resource.id,
-      latestVersion: resource.version,
-      archive: resource.archive
+      latestVersion: resource.latestVersion,
+      versions: resource.versions.map((release) => release.version)
+    })),
+    resourceSets: resourceSets.resourceSets.map((resourceSet) => ({
+      id: resourceSet.id,
+      latestVersion: resourceSet.latestVersion,
+      versions: resourceSet.versions.map((release) => release.version)
     })),
     plugins: current.plugins.map((plugin) => ({
       id: plugin.id,
@@ -214,6 +223,71 @@ async function streamFile(response: ServerResponse, filePath: string): Promise<v
   }
 }
 
+async function streamImmutableFile(
+  request: IncomingMessage,
+  response: ServerResponse,
+  filePath: string,
+  digest: string,
+): Promise<void> {
+  try {
+    const info = await stat(filePath);
+    if (!info.isFile()) throw new Error("not a file");
+    const etag = `"sha256-${digest}"`;
+    if (request.headers["if-none-match"] === etag) {
+      response.writeHead(304, { etag, "cache-control": "public, max-age=31536000, immutable" });
+      response.end();
+      return;
+    }
+    let start = 0;
+    let end = info.size - 1;
+    let status = 200;
+    const range = request.headers.range;
+    if (range) {
+      const match = /^bytes=(\d*)-(\d*)$/.exec(range.trim());
+      if (!match || (!match[1] && !match[2])) {
+        response.writeHead(416, { "content-range": `bytes */${info.size}` });
+        response.end();
+        return;
+      }
+      if (!match[1]) {
+        const suffix = Number(match[2]);
+        if (!Number.isSafeInteger(suffix) || suffix <= 0) {
+          response.writeHead(416, { "content-range": `bytes */${info.size}` });
+          response.end();
+          return;
+        }
+        start = Math.max(0, info.size - suffix);
+      } else {
+        start = Number(match[1]);
+        end = match[2] ? Number(match[2]) : end;
+      }
+      if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end < start || start >= info.size) {
+        response.writeHead(416, { "content-range": `bytes */${info.size}` });
+        response.end();
+        return;
+      }
+      end = Math.min(end, info.size - 1);
+      status = 206;
+    }
+    const headers: Record<string, string> = {
+      "content-type": "application/gzip",
+      "content-length": String(end - start + 1),
+      "cache-control": "public, max-age=31536000, immutable",
+      "accept-ranges": "bytes",
+      etag,
+      ...(status === 206 ? { "content-range": `bytes ${start}-${end}/${info.size}` } : {})
+    };
+    response.writeHead(status, headers);
+    if (request.method === "HEAD") {
+      response.end();
+      return;
+    }
+    createReadStream(filePath, { start, end }).pipe(response);
+  } catch {
+    json(response, 404, { error: "not found" });
+  }
+}
+
 export async function createHubServer(options: HubServerOptions = {}): Promise<{
   server: Server;
   start: () => Promise<{ host: string; port: number }>;
@@ -228,7 +302,7 @@ export async function createHubServer(options: HubServerOptions = {}): Promise<{
   const managementToken = options.managementToken ?? process.env.WUXIANPI_RESCUE_MANAGEMENT_TOKEN;
   const releaseStore = new ReleaseStore(publicDirectory, releaseDirectory);
   await releaseStore.initialize();
-  const resourceStore = new ResourceStore(publicDirectory, releaseDirectory);
+  const resourceStore = new ResourceStore(releaseDirectory);
   await resourceStore.initialize();
   const catalog = new CatalogRepository(releaseStore.catalogPath);
   await catalog.load();
@@ -242,7 +316,7 @@ export async function createHubServer(options: HubServerOptions = {}): Promise<{
       if (request.method === "OPTIONS") {
         response.writeHead(204, {
           "access-control-allow-origin": "*",
-          "access-control-allow-methods": "GET,POST,PUT,OPTIONS",
+          "access-control-allow-methods": "GET,HEAD,POST,PUT,OPTIONS",
           "access-control-allow-headers": "authorization,content-type,mcp-session-id"
         });
         response.end();
@@ -254,19 +328,47 @@ export async function createHubServer(options: HubServerOptions = {}): Promise<{
         return;
       }
 
-      if (pathname === "/api/v1/management/status" && request.method === "GET") {
+      if ((pathname === "/api/v1/management/status" || pathname === "/api/v2/management/status")
+        && request.method === "GET") {
         requireManagementAccess(request, managementToken);
         json(response, 200, await managementStatus(catalog, resourceStore, Boolean(managementToken)));
         return;
       }
 
-      if (request.method === "GET" && pathname === "/api/v1/resources") {
+      if (pathname === "/api/v1/resources" || pathname === "/resources.json") {
+        json(response, 410, { error: "resource API v1 has been retired; use /api/v2/resources" });
+        return;
+      }
+
+      if (request.method === "GET" && pathname === "/api/v2/resources") {
         const current = await resourceStore.readCatalog();
         json(response, 200, current, { etag: `"${current.revision}"` });
         return;
       }
 
-      const resourceUploadMatch = pathname.match(/^\/api\/v1\/management\/resources\/([^/]+)\/releases\/([^/]+)$/);
+      const resourceDetailMatch = pathname.match(/^\/api\/v2\/resources\/([^/]+)$/);
+      if (request.method === "GET" && resourceDetailMatch) {
+        const current = await resourceStore.readCatalog();
+        const resource = current.resources.find((candidate) => candidate.id === resourceDetailMatch[1]);
+        json(response, resource ? 200 : 404, resource ?? { error: "resource not found" });
+        return;
+      }
+
+      const resourceSetDetailMatch = pathname.match(/^\/api\/v2\/resource-sets\/([^/]+)$/);
+      if (request.method === "GET" && resourceSetDetailMatch) {
+        const current = await resourceStore.readResourceSetCatalog();
+        const resourceSet = current.resourceSets.find((candidate) => candidate.id === resourceSetDetailMatch[1]);
+        json(response, resourceSet ? 200 : 404, resourceSet ?? { error: "resource set not found" });
+        return;
+      }
+
+      const retiredResourceManagement = pathname.match(/^\/api\/v1\/management\/resources(?:\/|$)/);
+      if (retiredResourceManagement) {
+        json(response, 410, { error: "resource management API v1 has been retired" });
+        return;
+      }
+
+      const resourceUploadMatch = pathname.match(/^\/api\/v2\/management\/resources\/([^/]+)\/releases\/([^/]+)$/);
       if (resourceUploadMatch && request.method === "PUT") {
         requireManagementAccess(request, managementToken);
         const form = await multipartBody(request);
@@ -279,13 +381,70 @@ export async function createHubServer(options: HubServerOptions = {}): Promise<{
         }
         const resource = validateResourceMetadata(metadata, resourceUploadMatch[1], resourceUploadMatch[2]);
         const archive = await formFile(form, "archive");
-        const result = await resourceStore.publish(resource, archive);
+        const result = await resourceStore.publishResource(resource, archive);
         json(response, result.status === "published" ? 201 : 200, {
           status: result.status,
           resourceId: resource.id,
           version: resource.version,
           sha256: resource.sha256,
           size: resource.size,
+          revision: result.catalog.revision
+        });
+        return;
+      }
+
+      const resourcePromoteMatch = pathname.match(/^\/api\/v2\/management\/resources\/([^/]+)\/promote$/);
+      if (resourcePromoteMatch && request.method === "POST") {
+        requireManagementAccess(request, managementToken);
+        const input = await body(request);
+        if (typeof input !== "object" || input === null || Array.isArray(input)
+          || typeof (input as { version?: unknown }).version !== "string") {
+          throw new HttpError(400, "version is required");
+        }
+        const version = (input as { version: string }).version;
+        const result = await resourceStore.promoteResource(resourcePromoteMatch[1], version);
+        json(response, 200, {
+          status: result.status,
+          resourceId: resourcePromoteMatch[1],
+          version,
+          latestVersion: result.catalog.resources.find((resource) => resource.id === resourcePromoteMatch[1])?.latestVersion,
+          revision: result.catalog.revision
+        });
+        return;
+      }
+
+      const resourceSetUploadMatch = pathname.match(/^\/api\/v2\/management\/resource-sets\/([^/]+)\/releases\/([^/]+)$/);
+      if (resourceSetUploadMatch && request.method === "PUT") {
+        requireManagementAccess(request, managementToken);
+        const release = validateResourceSetMetadata(
+          await body(request), resourceSetUploadMatch[1], resourceSetUploadMatch[2]
+        );
+        const result = await resourceStore.publishResourceSet(release);
+        json(response, result.status === "published" ? 201 : 200, {
+          status: result.status,
+          resourceSetId: release.id,
+          version: release.version,
+          sequence: release.sequence,
+          revision: result.catalog.revision
+        });
+        return;
+      }
+
+      const resourceSetPromoteMatch = pathname.match(/^\/api\/v2\/management\/resource-sets\/([^/]+)\/promote$/);
+      if (resourceSetPromoteMatch && request.method === "POST") {
+        requireManagementAccess(request, managementToken);
+        const input = await body(request);
+        if (typeof input !== "object" || input === null || Array.isArray(input)
+          || typeof (input as { version?: unknown }).version !== "string") {
+          throw new HttpError(400, "version is required");
+        }
+        const version = (input as { version: string }).version;
+        const result = await resourceStore.promoteResourceSet(resourceSetPromoteMatch[1], version);
+        json(response, 200, {
+          status: result.status,
+          resourceSetId: resourceSetPromoteMatch[1],
+          version,
+          latestVersion: result.catalog.resourceSets.find((resourceSet) => resourceSet.id === resourceSetPromoteMatch[1])?.latestVersion,
           revision: result.catalog.revision
         });
         return;
@@ -399,13 +558,24 @@ export async function createHubServer(options: HubServerOptions = {}): Promise<{
         return;
       }
 
-      const resourceDownloadMatch = pathname.match(/^\/resources\/([a-z0-9.-]+)\/([0-9A-Za-z.+-]+)\/([a-z0-9._-]+\.tgz)$/);
-      if (request.method === "GET" && resourceDownloadMatch) {
+      if (pathname.startsWith("/resources/")) {
+        json(response, 410, { error: "resource downloads v1 have been retired" });
+        return;
+      }
+
+      const resourceDownloadMatch = pathname.match(/^\/resources-v2\/([a-z0-9.-]+)\/([0-9A-Za-z.+-]+)\/([a-z0-9._-]+\.tgz)$/);
+      if ((request.method === "GET" || request.method === "HEAD") && resourceDownloadMatch) {
         const current = await resourceStore.readCatalog();
-        const resource = current.resources.find((candidate) =>
-          candidate.id === resourceDownloadMatch[1] && candidate.version === resourceDownloadMatch[2] && candidate.archive === resourceDownloadMatch[3]);
-        if (!resource) return json(response, 404, { error: "resource release not found" });
-        await streamFile(response, resourceStore.archivePath(resource.id, resource.version, resource.archive));
+        const resource = current.resources.find((candidate) => candidate.id === resourceDownloadMatch[1]);
+        const release = resource?.versions.find((candidate) =>
+          candidate.version === resourceDownloadMatch[2] && candidate.archive === resourceDownloadMatch[3]);
+        if (!release) return json(response, 404, { error: "resource release not found" });
+        await streamImmutableFile(
+          request,
+          response,
+          resourceStore.archivePath(release.id, release.version, release.archive),
+          release.sha256,
+        );
         return;
       }
 
@@ -426,11 +596,6 @@ export async function createHubServer(options: HubServerOptions = {}): Promise<{
         await streamFile(response, releaseStore.catalogPath);
         return;
       }
-      if (request.method === "GET" && pathname === "/resources.json") {
-        await streamFile(response, resourceStore.catalogPath);
-        return;
-      }
-
       if (request.method === "GET" && (pathname === "/" || pathname === "/index.html")) {
         await streamFile(response, path.join(publicDirectory, "site", "index.html"));
         return;
@@ -452,6 +617,8 @@ export async function createHubServer(options: HubServerOptions = {}): Promise<{
           ? 400
           : requestError instanceof ResourceConflictError
             ? 409
+            : requestError instanceof ResourceNotFoundError
+              ? 404
           : 400;
       json(response, status, { error: requestError instanceof Error ? requestError.message : String(requestError) });
     }

@@ -13,7 +13,7 @@
       "id": "inspect",
       "kind": "tool",
       "tool": "inspect_wuxianpi_setup",
-      "description": "检查宿主类型、Termux、权限、安装载荷和服务真实状态。"
+      "description": "检查宿主类型、Termux、权限、APK 离线资源和现有资源集合状态。"
     },
     {
       "id": "prepare-host",
@@ -33,131 +33,65 @@
       "kind": "tool",
       "tool": "request_termux_run_command_permission",
       "when": "runtimeHost.externalTermux",
-      "description": "获取外部 Termux RUN_COMMAND 权限后立即执行真实命令验证。只有验证命令成功才算本步骤完成；若 Termux 报 allow-external-apps 未启用，必须通过已授权的 SAF Termux Home 文件通道把 ~/.termux/termux.properties 中 allow-external-apps = true 启用，再重新执行本步骤，不能直接进入持久终端准备。"
+      "description": "获取外部 Termux RUN_COMMAND 权限并验证 allow-external-apps = true；验证成功前不进入下一步。"
     },
     {
       "id": "persistent-terminal",
       "kind": "tool",
       "tool": "prepare_persistent_termux",
-      "description": "先测试软件源，再安装 tmux 的最小前置依赖并建立持久终端。"
+      "description": "安装 tmux、curl、jq、tar、gzip 和 flock 所需的最小 Termux 基础能力。"
     },
     {
-      "id": "read-control-plane-start-script",
+      "id": "read-resource-updater",
       "kind": "tool",
       "tool": "read_rescue_plugin_document",
       "arguments": {
-        "pluginId": "wuxianpi.first-install",
-        "path": "scripts/control-plane/start-control-plane-termux-native.sh"
+        "pluginId": "wuxianpi.resource-update",
+        "path": "scripts/update-resources.sh"
       },
-      "description": "读取版本化的 OpenHouse 控制面启动脚本；Android 侧固定入口会调用这个 Termux 脚本。"
+      "description": "读取市场最新的资源更新器 2.0.0；它是五个核心资源安装和回滚的唯一实现。"
     },
     {
-      "id": "read-control-plane-repair-script",
-      "kind": "tool",
-      "tool": "read_rescue_plugin_document",
-      "arguments": {
-        "pluginId": "wuxianpi.first-install",
-        "path": "scripts/control-plane/repair-control-plane-termux-native.sh"
-      },
-      "description": "读取控制面受控修复脚本。"
-    },
-    {
-      "id": "read-control-plane-inspect-script",
-      "kind": "tool",
-      "tool": "read_rescue_plugin_document",
-      "arguments": {
-        "pluginId": "wuxianpi.first-install",
-        "path": "scripts/control-plane/inspect-control-plane-termux-native.sh"
-      },
-      "description": "读取控制面诊断脚本，供维修助手输出结构化检查结果。"
-    },
-    {
-      "id": "read-control-plane-manifest",
-      "kind": "tool",
-      "tool": "read_rescue_plugin_document",
-      "arguments": {
-        "pluginId": "wuxianpi.first-install",
-        "path": "scripts/control-plane/control-plane-manifest.json"
-      },
-      "description": "读取控制面包校验清单；它必须最后写入 Termux，作为完整投放标记。"
-    },
-    {
-      "id": "prepare-control-plane-directory",
+      "id": "prepare-resource-updater-directory",
       "kind": "tool",
       "tool": "termux_exec_command",
       "arguments": {
-        "command": "mkdir -p \"$HOME/.local/share/openhouseai/control-plane/current\"",
+        "command": "mkdir -p \"$HOME/.local/share/wuxianpi/plugins/wuxianpi.resource-update\"",
         "working_directory": "$HOME",
-        "session_name": "openhouse-control-plane-stage",
+        "session_name": "wuxianpi-resource-update-stage",
         "yield_time_ms": 1000
       },
-      "description": "准备由 OpenHouse 管理的控制面目录，不覆盖旧 bootstrap 或用户目录。"
+      "description": "准备资源更新器持久目录。"
     },
     {
-      "id": "write-control-plane-start-script",
+      "id": "write-resource-updater",
       "kind": "tool-from-result",
       "tool": "write_file",
-      "sourceStep": "read-control-plane-start-script",
+      "sourceStep": "read-resource-updater",
       "arguments": {
         "environment": "repo:termux-home",
-        "path": ".local/share/openhouseai/control-plane/current/start-control-plane-termux-native.sh",
-        "content": "{{steps.read-control-plane-start-script.content}}"
+        "path": ".local/share/wuxianpi/plugins/wuxianpi.resource-update/update-resources.sh",
+        "content": "{{steps.read-resource-updater.content}}"
       },
-      "description": "投放控制面启动脚本。"
-    },
-    {
-      "id": "write-control-plane-repair-script",
-      "kind": "tool-from-result",
-      "tool": "write_file",
-      "sourceStep": "read-control-plane-repair-script",
-      "arguments": {
-        "environment": "repo:termux-home",
-        "path": ".local/share/openhouseai/control-plane/current/repair-control-plane-termux-native.sh",
-        "content": "{{steps.read-control-plane-repair-script.content}}"
-      },
-      "description": "投放控制面修复脚本。"
-    },
-    {
-      "id": "write-control-plane-inspect-script",
-      "kind": "tool-from-result",
-      "tool": "write_file",
-      "sourceStep": "read-control-plane-inspect-script",
-      "arguments": {
-        "environment": "repo:termux-home",
-        "path": ".local/share/openhouseai/control-plane/current/inspect-control-plane-termux-native.sh",
-        "content": "{{steps.read-control-plane-inspect-script.content}}"
-      },
-      "description": "投放控制面诊断脚本。"
-    },
-    {
-      "id": "write-control-plane-manifest",
-      "kind": "tool-from-result",
-      "tool": "write_file",
-      "sourceStep": "read-control-plane-manifest",
-      "arguments": {
-        "environment": "repo:termux-home",
-        "path": ".local/share/openhouseai/control-plane/current/control-plane-manifest.json",
-        "content": "{{steps.read-control-plane-manifest.content}}"
-      },
-      "description": "最后写入控制面 manifest，使 Native Android 入口和维修助手都能识别完整包。"
-    },
-    {
-      "id": "make-control-plane-scripts-executable",
-      "kind": "tool",
-      "tool": "termux_exec_command",
-      "arguments": {
-        "command": "chmod 700 \"$HOME/.local/share/openhouseai/control-plane/current/\"*-control-plane-termux-native.sh",
-        "working_directory": "$HOME",
-        "session_name": "openhouse-control-plane-stage",
-        "yield_time_ms": 1000
-      },
-      "description": "收紧控制面脚本权限；脚本只读取 canonical config，绝不输出 token。"
+      "description": "写入资源更新器；安装脚本不再自行维护 service-manager、Runtime、wuyou、Web 和控制面五套逻辑。"
     },
     {
       "id": "stage-setup",
       "kind": "tool",
       "tool": "start_wuxianpi_setup",
-      "description": "转移安装载荷，并按当前宿主返回前台安装所需的 command、session_name 和 yield_time_ms；Native 命令解包并调用原始资源，All-in-One 命令调用已暂存的 /bin/wuxianpi-setup；WuxianPi 只注册不默认启动。"
+      "description": "转移 APK 资源并返回当前宿主的安装命令；wuxianpi-setup 只准备系统依赖和 Ubuntu，核心资源委托给资源更新器。"
+    },
+    {
+      "id": "prepare-resource-updater",
+      "kind": "tool",
+      "tool": "termux_exec_command",
+      "arguments": {
+        "command": "chmod 700 \"$HOME/.local/share/wuxianpi/plugins/wuxianpi.resource-update/update-resources.sh\" && \"$HOME/.local/share/wuxianpi/plugins/wuxianpi.resource-update/update-resources.sh\" check",
+        "working_directory": "$HOME",
+        "session_name": "wuxianpi-resource-update-stage",
+        "yield_time_ms": 1000
+      },
+      "description": "APK 资源投递完成后验证 V2 市场或离线资源集合，并生成差异计划；断网 Native 不依赖市场。"
     },
     {
       "id": "run-setup-native",
@@ -165,7 +99,7 @@
       "tool": "termux_exec_command",
       "sourceStep": "stage-setup",
       "when": "runtimeHost.externalTermux",
-      "description": "Native 宿主使用 stage-setup 返回的 command、session_name 和 yield_time_ms；该命令必须先解包并调用 install-resources/current/bootstrap/wuxianpi-setup 原始脚本，绝不能改为执行 $PREFIX/bin/wuxianpi-setup，避免重跑时安装器自复制源与目标相同而退出。"
+      "description": "Native 使用 stage-setup 返回的原始命令运行 install-resources/current/bootstrap/wuxianpi-setup。"
     },
     {
       "id": "run-setup-embedded",
@@ -173,7 +107,7 @@
       "tool": "termux_exec_command",
       "sourceStep": "stage-setup",
       "when": "!runtimeHost.externalTermux",
-      "description": "All-in-One 宿主使用 stage-setup 返回的 command、session_name 和 yield_time_ms；该命令调用宿主已暂存的 /bin/wuxianpi-setup，不得拼接 Native 专用的 install-resources 路径。"
+      "description": "All-in-One 使用 stage-setup 返回的命令运行已暂存的 /bin/wuxianpi-setup。"
     },
     {
       "id": "verify",
@@ -188,7 +122,19 @@
           "service-manager 20087 健康检查暂不可达"
         ]
       },
-      "description": "轮询安装状态，并检查 service-daemon、runsvdir、sv status service-manager、20087、WuxianPi 服务声明、Ubuntu 和终端能力。termux-services 首次启动可能存在 runsvdir 时序窗口；遇到 unable to change to service directory 或暂时不可达时，按 retryPolicy 等待后重试 readiness，不要立即判定安装失败。WuxianPi stopped 是正常按需状态。"
+      "description": "轮询系统依赖、Ubuntu、资源集合和 service-manager 状态。"
+    },
+    {
+      "id": "verify-resource-set",
+      "kind": "tool",
+      "tool": "termux_exec_command",
+      "arguments": {
+        "command": "\"$HOME/.local/share/wuxianpi/plugins/wuxianpi.resource-update/update-resources.sh\" verify",
+        "working_directory": "$HOME",
+        "session_name": "wuxianpi-resource-update-verify",
+        "yield_time_ms": 1000
+      },
+      "description": "重新计算五个资源文件清单，验证 installed-set.json 与当前资源链接。"
     },
     {
       "id": "start-openhouse-control-plane",
@@ -200,19 +146,7 @@
         "session_name": "openhouse-control-plane-start",
         "yield_time_ms": 1000
       },
-      "description": "通过与 Android 固定入口相同的完整 Termux 控制脚本启动 service-manager；它会先确保 service-daemon/runsvdir，再验证带认证的 20087 API。"
-    },
-    {
-      "id": "verify-openhouse-control-plane",
-      "kind": "tool",
-      "tool": "termux_exec_command",
-      "arguments": {
-        "command": "\"$PREFIX/bin/bash\" \"$HOME/.local/share/openhouseai/control-plane/current/inspect-control-plane-termux-native.sh\" inspect",
-        "working_directory": "$HOME",
-        "session_name": "openhouse-control-plane-inspect",
-        "yield_time_ms": 1000
-      },
-      "description": "输出 control_plane_* 结构化状态。若 bundle、runsvdir、服务定义或认证 health 任一项失败，维修助手应依据 recommendation 使用 repair，而不是重复安装 WuxianPi。"
+      "description": "通过控制面资源启动并验证 service-manager。"
     },
     {
       "id": "read-openhouse-registration-script",
@@ -222,7 +156,7 @@
         "pluginId": "wuxianpi.first-install",
         "path": "scripts/register-openhouse-component.sh"
       },
-      "description": "读取版本化的 OpenHouse 桌面组件注册脚本，使用与 yuanshengwuxianpi 服务一致的组件 ID，避免由 Agent 临时拼接注册清单。"
+      "description": "读取 yuanshengwuxianpi 桌面组件注册脚本。"
     },
     {
       "id": "prepare-openhouse-registration-directory",
@@ -234,7 +168,7 @@
         "session_name": "wuxianpi-openhouse-registration-prepare",
         "yield_time_ms": 1000
       },
-      "description": "准备插件脚本的 Termux 持久目录。"
+      "description": "准备首次安装插件持久目录。"
     },
     {
       "id": "write-openhouse-registration-script",
@@ -246,7 +180,7 @@
         "path": ".local/share/wuxianpi/plugins/wuxianpi.first-install/register-openhouse-component.sh",
         "content": "{{steps.read-openhouse-registration-script.content}}"
       },
-      "description": "将当前插件版本的注册脚本写入 Termux Home；脚本只管理 yuanshengwuxianpi 组件，不删除用户组件或 WuxianPi 服务。"
+      "description": "写入当前版本的桌面组件注册脚本。"
     },
     {
       "id": "register-openhouse-component",
@@ -258,7 +192,7 @@
         "session_name": "wuxianpi-openhouse-component-register",
         "yield_time_ms": 1000
       },
-      "description": "通过 canonical service-manager 注册或修复 yuanshengwuxianpi 桌面组件；必要时迁移已确认属于 WuxianPi 的旧 pi-agent 清单，重复执行安全。"
+      "description": "通过 canonical service-manager 注册 yuanshengwuxianpi 桌面组件。"
     },
     {
       "id": "verify-openhouse-component",
@@ -270,7 +204,7 @@
         "session_name": "wuxianpi-openhouse-component-verify",
         "yield_time_ms": 1000
       },
-      "description": "验证 components.d/yuanshengwuxianpi.json 和 service-manager registry API；新版宿主返回后可刷新桌面组件，旧 APK 才需要完全退出并重新打开。"
+      "description": "验证 components.d/yuanshengwuxianpi.json 和 registry API。"
     }
   ]
 }

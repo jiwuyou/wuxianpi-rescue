@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "id": "wuxianpi.first-install",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "name": "首次安装",
-  "description": "完成 Termux、可自愈的 OpenHouse 控制面、按需 WuxianPi、桌面组件注册与 Ubuntu 初始化。",
+  "description": "准备 Termux 和 Ubuntu，通过资源更新器 2.0.0 收敛五个核心资源，并注册 WuxianPi 桌面组件。",
   "category": "setup",
   "minHostVersion": 12,
   "requiredCapabilities": ["setup-tools", "termux", "persistent-terminal"],
@@ -14,10 +14,6 @@
   ],
   "documents": [
     { "path": "docs/guide.md", "title": "首次安装说明" },
-    { "path": "scripts/register-openhouse-component.sh", "title": "OpenHouse 桌面组件注册脚本" },
-    { "path": "scripts/control-plane/control-plane-manifest.json", "title": "OpenHouse 控制面包清单" },
-    { "path": "scripts/control-plane/start-control-plane-termux-native.sh", "title": "OpenHouse 控制面启动脚本" },
-    { "path": "scripts/control-plane/repair-control-plane-termux-native.sh", "title": "OpenHouse 控制面修复脚本" },
-    { "path": "scripts/control-plane/inspect-control-plane-termux-native.sh", "title": "OpenHouse 控制面诊断脚本" }
+    { "path": "scripts/register-openhouse-component.sh", "title": "OpenHouse 桌面组件注册脚本" }
   ]
 }

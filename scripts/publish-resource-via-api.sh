@@ -8,6 +8,7 @@ Usage:
 
 Options:
   --metadata <path>  Resource metadata JSON (default: generated from arguments)
+  --promote          Promote this release after immutable upload
   --dry-run          Validate locally without calling the API
 USAGE
 }
@@ -18,6 +19,7 @@ VERSION=""
 ARCHIVE=""
 METADATA=""
 DRY_RUN=0
+PROMOTE=0
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --market) MARKET="${2:?missing value}"; shift 2 ;;
@@ -25,6 +27,7 @@ while [ "$#" -gt 0 ]; do
     --version) VERSION="${2:?missing value}"; shift 2 ;;
     --archive) ARCHIVE="${2:?missing value}"; shift 2 ;;
     --metadata) METADATA="${2:?missing value}"; shift 2 ;;
+    --promote) PROMOTE=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "unknown argument: $1" >&2; usage >&2; exit 2 ;;
@@ -35,6 +38,16 @@ done
 
 command -v node >/dev/null 2>&1 || { echo "node is required" >&2; exit 1; }
 command -v curl >/dev/null 2>&1 || { echo "curl is required" >&2; exit 1; }
+command -v gzip >/dev/null 2>&1 || { echo "gzip is required" >&2; exit 1; }
+command -v tar >/dev/null 2>&1 || { echo "tar is required" >&2; exit 1; }
+gzip -t "$ARCHIVE"
+tar -tzf "$ARCHIVE" | awk '
+  /^\// { exit 1 }
+  /(^|\/)\.\.($|\/)/ { exit 1 }
+  /\\/ { exit 1 }
+  { count++ }
+  END { if (count == 0) exit 1 }
+' || { echo "archive contains an unsafe path or is empty" >&2; exit 1; }
 WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/wuxianpi-resource-publish.XXXXXX")"
 trap 'rm -rf "$WORK_DIR"' EXIT HUP INT TERM
 metadata_path="$WORK_DIR/metadata.json"
@@ -48,13 +61,14 @@ const data = fs.readFileSync(archivePath);
 const supplied = metadataPathArg ? JSON.parse(fs.readFileSync(metadataPathArg, "utf8")) : {
   id, version, archive: path.basename(archivePath), compression: "gzip", abi: "arm64-v8a",
   size: data.length, sha256: crypto.createHash("sha256").update(data).digest("hex"),
-  url: `/resources/${id}/${version}/${path.basename(archivePath)}`, mirrors: []
+  url: `/resources-v2/${id}/${version}/${path.basename(archivePath)}`, mirrors: [],
+  minApkVersionCode: Number(process.env.OPENHOUSE_RESOURCE_MIN_APK_VERSION_CODE ?? 126)
 };
 if (supplied.id !== id || supplied.version !== version) throw new Error("metadata id/version mismatch");
 if (supplied.size !== data.length) throw new Error(`size mismatch: expected ${supplied.size}, got ${data.length}`);
 const digest = crypto.createHash("sha256").update(data).digest("hex");
 if (supplied.sha256 !== digest) throw new Error(`sha256 mismatch: expected ${supplied.sha256}, got ${digest}`);
-if (supplied.url !== `/resources/${id}/${version}/${supplied.archive}`) throw new Error("metadata url mismatch");
+if (supplied.url !== `/resources-v2/${id}/${version}/${supplied.archive}`) throw new Error("metadata url mismatch");
 fs.writeFileSync(output, `${JSON.stringify(supplied, null, 2)}\n`, { mode: 0o600 });
 console.log(`Validated ${id}@${version}: ${data.length} bytes, sha256=${digest}`);
 NODE
@@ -66,7 +80,14 @@ TOKEN="${WUXIANPI_RESCUE_MANAGEMENT_TOKEN:-}"
 BASE_URL="${BASE_URL%/}"
 curl -q --fail --silent --show-error -X PUT -H "Authorization: Bearer $TOKEN" \
   -F "metadata=<${metadata_path};type=application/json" -F "archive=@${ARCHIVE};type=application/gzip" \
-  "$BASE_URL/api/v1/management/resources/$RESOURCE_ID/releases/$VERSION"
+  "$BASE_URL/api/v2/management/resources/$RESOURCE_ID/releases/$VERSION"
 printf '\n'
-curl -q --fail --silent --show-error "$BASE_URL/api/v1/resources"
+if [ "$PROMOTE" -eq 1 ]; then
+  curl -q --fail --silent --show-error -X POST \
+    -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+    -d "{\"version\":\"$VERSION\"}" \
+    "$BASE_URL/api/v2/management/resources/$RESOURCE_ID/promote"
+  printf '\n'
+fi
+curl -q --fail --silent --show-error "$BASE_URL/api/v2/resources/$RESOURCE_ID"
 printf '\n'

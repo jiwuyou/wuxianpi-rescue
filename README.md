@@ -24,7 +24,7 @@ npm start
 6. 拒绝覆盖内容或 SHA-256 已变化的同版本发布；
 7. 按 SemVer 稳定排序并生成 `public/catalog.json`。
 
-资源包与插件包分开管理。资源目录通过单独的 `public/resources.json` 与 `/resources/...` 下载地址发布，管理 API 使用 `PUT /api/v1/management/resources/:resourceId/releases/:version`。`wuxianpi.resource-update` 负责把资源包同步到终端，`wuxianpi.first-install` 只负责首次安装初始化和它自己的版本更新。
+资源包与插件包分开管理。资源使用破坏性升级后的 API V2 和持久化 `/data/releases-v2`；旧 `/api/v1/resources`、`/resources.json` 与 `/resources/...` 均已退役并返回 `410 Gone`。`wuxianpi.resource-update 2.0.0` 负责按完整资源集合比较、下载差异、安装和回滚，`wuxianpi.first-install 1.0.6` 只准备宿主环境、获取最新资源更新器并注册桌面组件。
 
 插件发布后不可覆盖同一版本。内容有任何变化都必须递增 `manifest.json` 的 `version`；完全相同的重复构建可以通过。
 
@@ -42,8 +42,10 @@ GET  /api/v1/plugins/:id/versions
 GET  /api/v1/plugins/:id/comments?version=
 POST /api/v1/plugins/:id/comments
 POST /api/v1/comments/:id/replies
-GET  /api/v1/resources
-GET  /resources/:id/:version/:archive
+GET  /api/v2/resources
+GET  /api/v2/resources/:id
+GET  /api/v2/resource-sets/:id
+GET  /resources-v2/:id/:version/:archive
 GET  /plugins/:id/:version.zip
 GET  /docs/raw/:id/:version/:path
 POST /mcp
@@ -59,6 +61,10 @@ POST /mcp
 GET  /api/v1/management/status
 PUT  /api/v1/management/plugins/:pluginId/releases/:version
 POST /api/v1/management/plugins/:pluginId/promote
+PUT  /api/v2/management/resources/:resourceId/releases/:version
+POST /api/v2/management/resources/:resourceId/promote
+PUT  /api/v2/management/resource-sets/:resourceSetId/releases/:version
+POST /api/v2/management/resource-sets/:resourceSetId/promote
 ```
 
 生产环境通过 `WUXIANPI_RESCUE_MANAGEMENT_TOKEN` 启用接口。未配置 token 时写接口禁用；请求必须带 `Authorization: Bearer <token>`。Nginx 配置默认只允许本机、私网或 Tailscale 地址访问管理路径。
@@ -93,6 +99,32 @@ curl -X POST \
   -d '{"version":"1.0.1"}' \
   "$WUXIANPI_RESCUE_MANAGEMENT_URL/api/v1/management/plugins/wuxianpi.first-install/promote"
 ```
+
+## 发布核心资源集合
+
+APK 仓库中的 `scripts/generate-resource-set-v2.sh` 生成唯一的五资源组合、每个资源的发布 metadata 和 `openhouse-core-stack` manifest。All-in-One、Native 与市场上传必须使用这些相同字节，不能重新压缩：
+
+```bash
+cd /root/projects/smallphoneai/openhouseai-app-ai-web
+scripts/generate-resource-set-v2.sh --check
+jq . distribution/resources-v2/publish-manifest.json
+```
+
+先逐个上传但不 promote，完成测试机 `plan/apply/rollback` 后再提升资源，最后提升集合：
+
+```bash
+scripts/publish-resource-via-api.sh --market rescue \
+  --resource openhouse-runtime \
+  --version '0.1.0+pi.0.80.10' \
+  --archive /path/to/runtime-aarch64.tgz \
+  --metadata /path/to/metadata.json
+
+scripts/publish-resource-set-via-api.sh --market rescue \
+  --manifest /path/to/openhouse-core-stack.json \
+  --promote
+```
+
+资源版本不可覆盖。相同版本相同 SHA 重传是幂等成功，不同 SHA 返回 `409`。单个压缩资源上限为 60 MiB；Nginx 仅对 `/api/v2/management/` 放宽到 64 MiB。版本化下载支持 `HEAD`、Range、ETag 和不可变缓存。
 
 发表评论：
 

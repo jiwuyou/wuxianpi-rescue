@@ -50,7 +50,8 @@ test("implements initialize, tools/list and tools/call over HTTP", async () => {
         arguments: { pluginId: "wuxianpi.first-install", path: "docs/guide.md" }
       }
     });
-    assert.match(document.payload.result.structuredContent.content, /termux_exec_command/);
+    assert.match(document.payload.result.structuredContent.content, /wuxianpi\.resource-update 2\.0\.0/);
+    assert.match(document.payload.result.structuredContent.content, /五个 OpenHouse 核心资源/);
   } finally {
     await instance.close();
     await rm(temporary, { recursive: true, force: true });
