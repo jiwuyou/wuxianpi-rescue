@@ -78,16 +78,25 @@ BASE_URL="${WUXIANPI_RESCUE_MANAGEMENT_URL:-}"
 TOKEN="${WUXIANPI_RESCUE_MANAGEMENT_TOKEN:-}"
 [ -n "$BASE_URL" ] && [ -n "$TOKEN" ] || { echo "WUXIANPI_RESCUE_MANAGEMENT_URL and WUXIANPI_RESCUE_MANAGEMENT_TOKEN are required" >&2; exit 1; }
 BASE_URL="${BASE_URL%/}"
-curl -q --fail --silent --show-error -X PUT -H "Authorization: Bearer $TOKEN" \
+
+management_curl() {
+  if [ -n "${WUXIANPI_RESCUE_MANAGEMENT_RESOLVE:-}" ]; then
+    curl --resolve "$WUXIANPI_RESCUE_MANAGEMENT_RESOLVE" "$@"
+  else
+    curl "$@"
+  fi
+}
+
+management_curl -q --fail --silent --show-error -X PUT -H "Authorization: Bearer $TOKEN" \
   -F "metadata=<${metadata_path};type=application/json" -F "archive=@${ARCHIVE};type=application/gzip" \
   "$BASE_URL/api/v2/management/resources/$RESOURCE_ID/releases/$VERSION"
 printf '\n'
 if [ "$PROMOTE" -eq 1 ]; then
-  curl -q --fail --silent --show-error -X POST \
+  management_curl -q --fail --silent --show-error -X POST \
     -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
     -d "{\"version\":\"$VERSION\"}" \
     "$BASE_URL/api/v2/management/resources/$RESOURCE_ID/promote"
   printf '\n'
 fi
-curl -q --fail --silent --show-error "$BASE_URL/api/v2/resources/$RESOURCE_ID"
+management_curl -q --fail --silent --show-error "$BASE_URL/api/v2/resources/$RESOURCE_ID"
 printf '\n'

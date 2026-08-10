@@ -55,17 +55,26 @@ TOKEN="${WUXIANPI_RESCUE_MANAGEMENT_TOKEN:-}"
   exit 1
 }
 BASE_URL="${BASE_URL%/}"
-curl -q --fail --silent --show-error -X PUT \
+
+management_curl() {
+  if [ -n "${WUXIANPI_RESCUE_MANAGEMENT_RESOLVE:-}" ]; then
+    curl --resolve "$WUXIANPI_RESCUE_MANAGEMENT_RESOLVE" "$@"
+  else
+    curl "$@"
+  fi
+}
+
+management_curl -q --fail --silent --show-error -X PUT \
   -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
   --data-binary "@$MANIFEST" \
   "$BASE_URL/api/v2/management/resource-sets/$RESOURCE_SET_ID/releases/$VERSION"
 printf '\n'
 if [ "$PROMOTE" -eq 1 ]; then
-  curl -q --fail --silent --show-error -X POST \
+  management_curl -q --fail --silent --show-error -X POST \
     -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
     -d "{\"version\":\"$VERSION\"}" \
     "$BASE_URL/api/v2/management/resource-sets/$RESOURCE_SET_ID/promote"
   printf '\n'
 fi
-curl -q --fail --silent --show-error "$BASE_URL/api/v2/resource-sets/$RESOURCE_SET_ID"
+management_curl -q --fail --silent --show-error "$BASE_URL/api/v2/resource-sets/$RESOURCE_SET_ID"
 printf '\n'
