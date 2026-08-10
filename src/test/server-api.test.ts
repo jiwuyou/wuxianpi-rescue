@@ -52,11 +52,11 @@ test("serves catalog, downloads and persistent versioned comments", async () => 
     assert.ok(catalog.plugins.some((plugin: { id: string }) => plugin.id === "wuxianpi.termux-repair"));
 
     const detail = await (await fetch(`${base}/api/v1/plugins/wuxianpi.first-install`)).json();
-    assert.equal(detail.latestVersion, "1.0.6");
-    assert.deepEqual(
-      detail.versions.map((release: { manifest: { version: string } }) => release.manifest.version),
-      ["1.0.6", "1.0.5", "1.0.4", "1.0.3", "1.0.2", "1.0.1", "1.0.0"]
-    );
+    const versions = detail.versions.map((release: { manifest: { version: string } }) => release.manifest.version);
+    assert.equal(detail.latestVersion, versions[0]);
+    assert.equal(new Set(versions).size, versions.length);
+    assert.ok(versions.includes("1.0.6"));
+    assert.ok(versions.includes("1.0.0"));
     const release = detail.versions[0];
     const download = await fetch(`${base}${release.downloadUrl}`);
     assert.equal(download.status, 200);

@@ -9,12 +9,28 @@ export interface PluginDocumentDeclaration {
 
 export type PluginAssistantContextScope = "session" | "turn";
 export type PluginAssistantContextProvider = "static" | "javascript";
+export type PluginSessionRole = "bootstrap" | "runtime" | "business";
+export type PluginActionVisibility =
+  | "always"
+  | "apk-update-pending"
+  | "first-install-incomplete"
+  | "maintenance-due";
 
 export interface PluginAssistantContextDeclaration {
   path: string;
   scope: PluginAssistantContextScope;
   provider: PluginAssistantContextProvider;
   function?: string;
+}
+
+export interface PluginActionDeclaration {
+  id: string;
+  title: string;
+  icon: string;
+  priority: number;
+  prompt: string;
+  visibleWhen: PluginActionVisibility;
+  requiresPlugins: string[];
 }
 
 export interface PluginManifest {
@@ -28,7 +44,9 @@ export interface PluginManifest {
   requiredCapabilities: string[];
   tags: string[];
   entryWorkflow?: string;
+  sessionRole: PluginSessionRole;
   assistantContexts: PluginAssistantContextDeclaration[];
+  actions: PluginActionDeclaration[];
   documents: PluginDocumentDeclaration[];
 }
 
@@ -172,6 +190,13 @@ export function validateManifest(input: unknown): PluginManifest {
   stringArray(input.requiredCapabilities, "requiredCapabilities");
   stringArray(input.tags, "tags");
 
+  const sessionRole: PluginSessionRole = input.sessionRole === undefined
+    ? "business"
+    : input.sessionRole as PluginSessionRole;
+  if (sessionRole !== "bootstrap" && sessionRole !== "runtime" && sessionRole !== "business") {
+    throw new Error("sessionRole must be bootstrap, runtime, or business");
+  }
+
   if (!Array.isArray(input.documents)) throw new Error("documents must be an array");
   const documents = input.documents.map((document, index) => {
     if (!isRecord(document)) throw new Error(`documents[${index}] must be an object`);
@@ -227,6 +252,60 @@ export function validateManifest(input: unknown): PluginManifest {
         });
       })();
 
+  const actions = input.actions === undefined
+    ? []
+    : (() => {
+        if (!Array.isArray(input.actions)) throw new Error("actions must be an array");
+        const actionIds = new Set<string>();
+        return input.actions.map((action, index) => {
+          if (!isRecord(action)) throw new Error(`actions[${index}] must be an object`);
+          rejectUnknownFields(
+            action,
+            ["id", "title", "icon", "priority", "prompt", "visibleWhen", "requiresPlugins"],
+            `actions[${index}]`
+          );
+          requiredString(action.id, `actions[${index}].id`);
+          if (!/^[a-z0-9]+(?:[.-][a-z0-9]+)*$/.test(action.id)) {
+            throw new Error(`actions[${index}].id has an invalid format`);
+          }
+          if (actionIds.has(action.id)) {
+            throw new Error(`actions contains duplicate id '${action.id}'`);
+          }
+          actionIds.add(action.id);
+          requiredString(action.title, `actions[${index}].title`);
+          requiredString(action.icon, `actions[${index}].icon`);
+          requiredString(action.prompt, `actions[${index}].prompt`);
+          if (!Number.isInteger(action.priority) || Number(action.priority) < 0 || Number(action.priority) > 1000) {
+            throw new Error(`actions[${index}].priority must be an integer from 0 to 1000`);
+          }
+          const visibleWhen = action.visibleWhen === undefined ? "always" : action.visibleWhen;
+          if (
+            visibleWhen !== "always" &&
+            visibleWhen !== "apk-update-pending" &&
+            visibleWhen !== "first-install-incomplete" &&
+            visibleWhen !== "maintenance-due"
+          ) {
+            throw new Error(`actions[${index}].visibleWhen is unsupported`);
+          }
+          const requiresPlugins = action.requiresPlugins === undefined ? [] : action.requiresPlugins;
+          stringArray(requiresPlugins, `actions[${index}].requiresPlugins`);
+          requiresPlugins.forEach((pluginId) => {
+            if (!/^[a-z0-9]+(?:[.-][a-z0-9]+)*$/.test(pluginId)) {
+              throw new Error(`actions[${index}].requiresPlugins contains an invalid plugin id`);
+            }
+          });
+          return {
+            id: action.id,
+            title: action.title,
+            icon: action.icon,
+            priority: Number(action.priority),
+            prompt: action.prompt,
+            visibleWhen: visibleWhen as PluginActionVisibility,
+            requiresPlugins: [...requiresPlugins]
+          };
+        });
+      })();
+
   return {
     schemaVersion: PLUGIN_SCHEMA_VERSION,
     id: input.id,
@@ -238,7 +317,9 @@ export function validateManifest(input: unknown): PluginManifest {
     requiredCapabilities: [...input.requiredCapabilities],
     tags: [...input.tags],
     entryWorkflow,
+    sessionRole,
     assistantContexts,
+    actions,
     documents
   };
 }

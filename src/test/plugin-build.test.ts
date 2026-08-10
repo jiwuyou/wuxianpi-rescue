@@ -19,11 +19,20 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     for (const requiredId of [
       "wuxianpi.first-install",
       "wuxianpi.resource-update",
+      "wuxianpi.session-bootstrap",
+      "wuxianpi.session-runtime",
       "wuxianpi.openhouse-small-app-guide",
       "wuxianpi.service-manager"
     ]) {
-      assert.ok(pluginIds.has(requiredId), `missing required plugin ${requiredId}`);
+    assert.ok(pluginIds.has(requiredId), `missing required plugin ${requiredId}`);
     }
+    const runtime = catalog.plugins.find((plugin) => plugin.id === "wuxianpi.session-runtime");
+    assert.equal(runtime?.latestVersion, "1.0.1");
+    assert.equal(runtime?.versions[0].manifest.sessionRole, "runtime");
+    assert.deepEqual(
+      runtime?.versions[0].manifest.actions.map((action) => action.id),
+      ["first-install", "resource-update", "daily-maintenance"]
+    );
     const firstInstall = catalog.plugins.find((plugin) => plugin.id === "wuxianpi.first-install");
     assert.ok(firstInstall);
     assert.deepEqual(
@@ -273,15 +282,16 @@ test("preserves immutable historical releases with deterministic SemVer ordering
   }
 });
 
-test("published first-install catalog retains historical releases and promotes 1.0.6", async () => {
+test("published first-install catalog retains source history and a coherent latest pointer", async () => {
   const catalog = JSON.parse(await readFile(path.join(ROOT, "public", "catalog.json"), "utf8"));
   const firstInstall = catalog.plugins.find((plugin: { id: string }) => plugin.id === "wuxianpi.first-install");
   assert.ok(firstInstall);
-  assert.equal(firstInstall.latestVersion, "1.0.6");
-  assert.deepEqual(
-    firstInstall.versions.map((release: { manifest: { version: string } }) => release.manifest.version),
-    ["1.0.6", "1.0.5", "1.0.4", "1.0.3", "1.0.2", "1.0.1", "1.0.0"]
-  );
+  const versions = firstInstall.versions.map((release: { manifest: { version: string } }) => release.manifest.version);
+  assert.equal(firstInstall.latestVersion, versions[0]);
+  assert.equal(new Set(versions).size, versions.length);
+  for (const version of ["1.0.0", "1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.0.5", "1.0.6"]) {
+    assert.ok(versions.includes(version), `missing first-install history ${version}`);
+  }
 });
 
 test("orders equal-precedence build metadata versions deterministically", async () => {

@@ -28,6 +28,16 @@ npm start
 
 插件发布后不可覆盖同一版本。内容有任何变化都必须递增 `manifest.json` 的 `version`；完全相同的重复构建可以通过。
 
+## 维修会话核心插件
+
+`wuxianpi.session-bootstrap` 与 `wuxianpi.session-runtime` 是维修助手的两个核心插件。Bootstrap 必须在 APK 本地有 seed 版本，每个新对话只执行一次：读取冻结记忆、刷新市场、统一更新已安装且兼容的官方插件，然后原子切换活动集合。当前对话保持 Bootstrap N；本轮更新的 Bootstrap N+1 只在下一个对话启用。
+
+Runtime 不刷新市场，也不能返回 Bootstrap。插件集合切换完成后，当前对话立即加载最新 Runtime，由它根据用户目的选择业务插件、完成操作、验证实际状态并写回记忆。因此 Runtime 版本 N+1 可以在同一对话生效。
+
+插件 manifest 可声明 `sessionRole`（`bootstrap`、`runtime` 或 `business`）和 `actions`。actions 只描述顶部入口的标题、图标、显示条件、依赖和提示词；它们不会携带 shell 命令或新增宿主权限。点击入口创建或恢复普通维修对话，宿主仍执行本地 Bootstrap 后才处理提示词。
+
+所有已安装且兼容的官方插件会在 Bootstrap 中作为一个事务更新：先下载并校验完整差异集合，再一次性切换 active index。任何成员失败时，上一套完整集合继续工作。未安装的业务插件不会被批量安装，Runtime 仅在任务需要时按显式说明安装。
+
 ```bash
 npm run build
 ```

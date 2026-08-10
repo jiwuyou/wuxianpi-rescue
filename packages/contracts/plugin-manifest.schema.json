@@ -19,6 +19,7 @@
     "requiredCapabilities": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
     "tags": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
     "entryWorkflow": { "$ref": "#/$defs/safePath" },
+    "sessionRole": { "enum": ["bootstrap", "runtime", "business"], "default": "business" },
     "assistantContexts": {
       "type": "array",
       "items": {
@@ -47,6 +48,31 @@
             "then": { "not": { "required": ["function"] } }
           }
         ]
+      }
+    },
+    "actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "icon", "priority", "prompt"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$" },
+          "title": { "type": "string", "minLength": 1 },
+          "icon": { "type": "string", "minLength": 1 },
+          "priority": { "type": "integer", "minimum": 0, "maximum": 1000 },
+          "prompt": { "type": "string", "minLength": 1 },
+          "visibleWhen": {
+            "enum": ["always", "apk-update-pending", "first-install-incomplete", "maintenance-due"],
+            "default": "always"
+          },
+          "requiresPlugins": {
+            "type": "array",
+            "items": { "type": "string", "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$" },
+            "uniqueItems": true,
+            "default": []
+          }
+        }
       }
     },
     "documents": {

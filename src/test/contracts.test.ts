@@ -35,6 +35,8 @@ test("validates strict SemVer manifests and accepts build metadata", () => {
 test("accepts optional assistant contexts while preserving old manifests", () => {
   const legacy = validateManifest(manifest("1.0.0"));
   assert.deepEqual(legacy.assistantContexts, []);
+  assert.equal(legacy.sessionRole, "business");
+  assert.deepEqual(legacy.actions, []);
 
   const withContext = validateManifest({
     ...manifest("1.0.0"),
@@ -47,6 +49,39 @@ test("accepts optional assistant contexts while preserving old manifests", () =>
     { path: "prompts/instruction.md", scope: "session", provider: "static" },
     { path: "scripts/time.js", scope: "turn", provider: "javascript", function: "buildContext" }
   ]);
+});
+
+test("validates session roles and dynamic prompt actions", () => {
+  const parsed = validateManifest({
+    ...manifest("1.0.0"),
+    sessionRole: "runtime",
+    actions: [{
+      id: "resource-update",
+      title: "Check updates",
+      icon: "refresh-cw",
+      priority: 90,
+      prompt: "Inspect current resources.",
+      requiresPlugins: ["wuxianpi.resource-update"]
+    }]
+  });
+  assert.equal(parsed.sessionRole, "runtime");
+  assert.deepEqual(parsed.actions, [{
+    id: "resource-update",
+    title: "Check updates",
+    icon: "refresh-cw",
+    priority: 90,
+    prompt: "Inspect current resources.",
+    visibleWhen: "always",
+    requiresPlugins: ["wuxianpi.resource-update"]
+  }]);
+  assert.throws(() => validateManifest({
+    ...manifest("1.0.0"),
+    sessionRole: "bootstrap",
+    actions: [
+      { id: "same", title: "One", icon: "play", priority: 1, prompt: "One" },
+      { id: "same", title: "Two", icon: "play", priority: 2, prompt: "Two" }
+    ]
+  }), /duplicate id/);
 });
 
 test("rejects unsafe or incomplete assistant context declarations", () => {
