@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "id": "wuxianpi.resource-update",
-  "version": "2.0.0",
+  "version": "2.0.2",
   "name": "APK 资源更新",
-  "description": "将五个核心资源收敛到经过验证的资源集合，仅下载缺失或不一致内容，并支持事务回滚。",
+  "description": "委托 Termux 本地资源管理器收敛五个核心资源，仅下载差异内容并支持事务回滚。",
   "category": "update",
   "minHostVersion": 12,
   "requiredCapabilities": ["setup-tools", "termux", "persistent-terminal"],

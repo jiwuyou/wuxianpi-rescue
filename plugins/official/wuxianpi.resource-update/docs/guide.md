@@ -1,6 +1,6 @@
 # OpenHouse 核心资源更新
 
-`wuxianpi.resource-update 2.0.0` 使用全新的资源 API V2，不兼容 1.0.0 的单 Runtime 目录。
+`wuxianpi.resource-update 2.0.2` 使用资源 API V2，不兼容 1.0.0 的单 Runtime 目录。它优先调用 Termux 中由 APK 离线总包安装的 `$PREFIX/bin/openhouse-resource-manager`，因此在线更新与首次安装共享同一套差异计算、事务安装、校验、回滚和 receipt 实现。
 
 目标是让设备最终拥有 `openhouse-core-stack` 声明的五个资源：`service-manager`、`openhouse-control-plane`、`openhouse-runtime`、`wuyou` 和 `openhouse-web`。更新器会检查全部资源，但只有已安装内容、缓存和 APK 内置资源都无法匹配目标 SHA-256 时才联网下载。
 

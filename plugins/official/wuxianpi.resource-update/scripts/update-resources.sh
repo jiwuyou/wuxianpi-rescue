@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
+if [[ -x "$PREFIX/bin/openhouse-resource-manager" ]]; then
+  exec "$PREFIX/bin/openhouse-resource-manager" "$@"
+fi
+
 MARKET_URL="${WUXIANPI_RESCUE_MARKET_URL:-https://wuxianpirescue.webefficacy.com}"
 MARKET_URL="${MARKET_URL%/}"
 RESOURCE_SET_ID="${OPENHOUSEAI_RESOURCE_SET_ID:-openhouse-core-stack}"

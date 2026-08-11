@@ -50,10 +50,10 @@ test("implements initialize, tools/list and tools/call over HTTP", async () => {
         arguments: { pluginId: "wuxianpi.first-install", path: "docs/guide.md" }
       }
     });
-    assert.match(document.payload.result.structuredContent.content, /wuxianpi\.resource-update 2\.0\.0/);
+    assert.match(document.payload.result.structuredContent.content, /首次安装和运行中枢启动链路都不依赖该插件/);
+    assert.match(document.payload.result.structuredContent.content, /openhouse-install-bundle\.tar/);
     assert.match(document.payload.result.structuredContent.content, /核心资源集合/);
     assert.match(document.payload.result.structuredContent.content, /openhouse-control-plane-start/);
-    assert.match(document.payload.result.structuredContent.content, /运行中枢启动链路不依赖资源更新器/);
   } finally {
     await instance.close();
     await rm(temporary, { recursive: true, force: true });
