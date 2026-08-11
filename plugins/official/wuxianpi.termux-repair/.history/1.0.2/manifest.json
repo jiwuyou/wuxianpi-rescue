@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "wuxianpi.termux-repair",
-  "version": "1.0.3",
+  "version": "1.0.2",
   "name": "Termux 修复",
   "description": "诊断并显式补齐 Android-Termux 固定入口与 service-manager 常驻链路。",
   "category": "repair",

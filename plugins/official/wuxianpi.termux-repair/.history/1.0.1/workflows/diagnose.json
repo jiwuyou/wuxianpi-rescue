@@ -10,12 +10,12 @@
       "kind": "tool",
       "tool": "termux_exec_command",
       "arguments": {
-        "command": "entry=\"$PREFIX/bin/openhouse-control-plane-start\"; implementation=\"$PREFIX/libexec/openhouse/start-service-manager.sh\"; if [ -x \"$entry\" ]; then printf 'control_plane_entry=ok\\n'; else printf 'control_plane_entry=missing\\n'; fi; if [ -x \"$implementation\" ]; then printf 'control_plane_implementation=ok\\n'; else printf 'control_plane_implementation=missing\\n'; fi; printf 'SVDIR=%s\\nLOGDIR=%s\\n' \"${SVDIR:-$PREFIX/var/service}\" \"${LOGDIR:-$PREFIX/var/log}\"; SVDIR=\"${SVDIR:-$PREFIX/var/service}\" sv status service-manager || true; curl -fsS --max-time 2 http://127.0.0.1:20087/api/v1/health || true",
+        "command": "script=\"$HOME/.local/share/openhouseai/control-plane/current/inspect-control-plane-termux-native.sh\"; if [ -r \"$script\" ]; then \"$PREFIX/bin/bash\" \"$script\" inspect; else printf 'control_plane_bundle=missing\\ncontrol_plane_recommendation=run-wuxianpi-first-install-1.0.4\\n'; fi",
         "working_directory": "$HOME",
         "session_name": "wuxianpi-termux-repair-control-plane",
         "yield_time_ms": 1000
       },
-      "description": "只读诊断两个固定脚本、runit 状态和无鉴权 health；不得因为 yuanshengwuxianpi stopped 而判定 service-manager 损坏。"
+      "description": "诊断 Android 固定入口依赖的 OpenHouse 控制面包；不得因为 yuanshengwuxianpi stopped 而判定 service-manager 损坏。"
     },
     { "id": "verify", "kind": "tool", "tool": "get_wuxianpi_setup_status", "description": "检查 service-daemon、runsvdir、sv status service-manager 和 20087；忽略 WuxianPi 的正常 stopped 状态。" }
   ]

@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "id": "wuxianpi.termux-repair.control-plane-entry",
+  "title": "补齐运行中枢固定入口",
+  "steps": [
+    {
+      "id": "read-entry",
+      "kind": "tool",
+      "tool": "read_rescue_plugin_document",
+      "arguments": {
+        "pluginId": "wuxianpi.termux-repair",
+        "path": "scripts/openhouse-control-plane-start"
+      }
+    },
+    {
+      "id": "read-implementation",
+      "kind": "tool",
+      "tool": "read_rescue_plugin_document",
+      "arguments": {
+        "pluginId": "wuxianpi.termux-repair",
+        "path": "scripts/start-service-manager.sh"
+      }
+    },
+    {
+      "id": "prepare-stage",
+      "kind": "tool",
+      "tool": "termux_exec_command",
+      "arguments": {
+        "command": "mkdir -p \"$HOME/.local/share/wuxianpi/plugins/wuxianpi.termux-repair/control-plane\"",
+        "working_directory": "$HOME",
+        "session_name": "wuxianpi-termux-repair-control-plane",
+        "yield_time_ms": 1000
+      }
+    },
+    {
+      "id": "write-entry",
+      "kind": "tool-from-result",
+      "tool": "write_file",
+      "sourceStep": "read-entry",
+      "arguments": {
+        "environment": "repo:termux-home",
+        "path": ".local/share/wuxianpi/plugins/wuxianpi.termux-repair/control-plane/openhouse-control-plane-start",
+        "content": "{{steps.read-entry.content}}"
+      }
+    },
+    {
+      "id": "write-implementation",
+      "kind": "tool-from-result",
+      "tool": "write_file",
+      "sourceStep": "read-implementation",
+      "arguments": {
+        "environment": "repo:termux-home",
+        "path": ".local/share/wuxianpi/plugins/wuxianpi.termux-repair/control-plane/start-service-manager.sh",
+        "content": "{{steps.read-implementation.content}}"
+      }
+    },
+    {
+      "id": "install",
+      "kind": "tool",
+      "tool": "termux_exec_command",
+      "arguments": {
+        "command": "set -eu; stage=\"$HOME/.local/share/wuxianpi/plugins/wuxianpi.termux-repair/control-plane\"; install -d \"$PREFIX/bin\" \"$PREFIX/libexec/openhouse\"; install -m 700 \"$stage/openhouse-control-plane-start\" \"$PREFIX/bin/openhouse-control-plane-start\"; install -m 700 \"$stage/start-service-manager.sh\" \"$PREFIX/libexec/openhouse/start-service-manager.sh\"; \"$PREFIX/bin/openhouse-control-plane-start\"",
+        "working_directory": "$HOME",
+        "session_name": "wuxianpi-termux-repair-control-plane",
+        "yield_time_ms": 1000
+      },
+      "description": "仅补齐固定入口并执行一次启动；不修改配置、token、registry 或资源。"
+    },
+    {
+      "id": "verify",
+      "kind": "tool",
+      "tool": "termux_exec_command",
+      "arguments": {
+        "command": "test -x \"$PREFIX/bin/openhouse-control-plane-start\" && test -x \"$PREFIX/libexec/openhouse/start-service-manager.sh\" && curl -fsS --max-time 2 http://127.0.0.1:20087/api/v1/health",
+        "working_directory": "$HOME",
+        "session_name": "wuxianpi-termux-repair-control-plane",
+        "yield_time_ms": 1000
+      }
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "wuxianpi.first-install",
-  "version": "1.0.9",
+  "version": "1.0.8",
   "name": "首次安装",
   "description": "准备 Termux 和 Ubuntu，独立安装运行中枢固定入口，并注册 WuxianPi 桌面组件。",
   "category": "setup",

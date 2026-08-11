@@ -6,13 +6,13 @@
 
 持久终端准备完成后，还要独立检查正式服务链路：`service-daemon` 和 `sv` 命令存在、`runsvdir` 正在运行、`sv status service-manager` 正常，并且 `127.0.0.1:20087` 健康接口可访问。必要时执行 `service-daemon start`。
 
-Android 的“启动运行中枢”只依赖两个固定脚本。诊断工作流会检查：
+Android 的“启动运行中枢”依赖 OpenHouse 控制面包。诊断工作流会检查：
 
 ```bash
-$PREFIX/bin/openhouse-control-plane-start
-$PREFIX/libexec/openhouse/start-service-manager.sh
+"$PREFIX/bin/bash" \
+  "$HOME/.local/share/openhouseai/control-plane/current/inspect-control-plane-termux-native.sh" inspect
 ```
 
-如果脚本缺失或不可执行，在用户明确要求修复后运行 `workflows/repair-control-plane.json`。该工作流只补齐两个脚本并执行固定入口；不覆盖配置、不生成 token、不更新资源、不同步 registry，也不重装 WuxianPi。
+如果输出 `control_plane_bundle=missing`，更新 `wuxianpi.first-install` 到 `1.0.4` 并重新运行其控制面投放步骤；不要直接重装 WuxianPi。脚本只输出结构化状态，不输出 service-manager token。
 
 tmux 只负责持久执行安装和维修命令，不能用 tmux 会话代替 `termux-services` 托管 service-manager。WuxianPi 的 `yuanshengwuxianpi` 服务按需运行；它未启动或显示 `stopped` 不属于 Termux 故障。

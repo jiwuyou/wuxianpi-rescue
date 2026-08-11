@@ -1,6 +1,6 @@
 # WuxianPi 首次安装
 
-`wuxianpi.first-install 1.0.9` 负责宿主权限、Termux/Ubuntu 基础环境、运行中枢固定入口和桌面组件注册。Runtime/Web 等通用资源仍可由 `wuxianpi.resource-update 2.0.0` 处理，但运行中枢启动链路不依赖资源更新器。
+`wuxianpi.first-install 1.0.8` 负责宿主权限、Termux/Ubuntu 基础环境、运行中枢固定入口和桌面组件注册。Runtime/Web 等通用资源仍可由 `wuxianpi.resource-update 2.0.0` 处理，但运行中枢启动链路不依赖资源更新器。
 
 首次安装入口应先刷新维修助手市场并运行已 promote 的最新 `wuxianpi.first-install`。工作流执行过程中还会再次读取市场最新的 `wuxianpi.resource-update` 脚本，因此首次安装插件和资源更新器分别升级，不依赖 APK 重新发版。
 

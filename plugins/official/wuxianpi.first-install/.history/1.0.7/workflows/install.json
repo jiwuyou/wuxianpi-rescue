@@ -42,74 +42,6 @@
       "description": "安装 tmux、curl、jq、tar、gzip 和 flock 所需的最小 Termux 基础能力。"
     },
     {
-      "id": "read-control-plane-entry",
-      "kind": "tool",
-      "tool": "read_rescue_plugin_document",
-      "arguments": {
-        "pluginId": "wuxianpi.first-install",
-        "path": "scripts/openhouse-control-plane-start"
-      },
-      "description": "读取 Android 与 Termux 之间唯一稳定的运行中枢入口。"
-    },
-    {
-      "id": "read-service-manager-start",
-      "kind": "tool",
-      "tool": "read_rescue_plugin_document",
-      "arguments": {
-        "pluginId": "wuxianpi.first-install",
-        "path": "scripts/start-service-manager.sh"
-      },
-      "description": "读取独立的 Termux service-manager 启动实现。"
-    },
-    {
-      "id": "prepare-control-plane-script-stage",
-      "kind": "tool",
-      "tool": "termux_exec_command",
-      "arguments": {
-        "command": "mkdir -p \"$HOME/.local/share/wuxianpi/plugins/wuxianpi.first-install/control-plane\"",
-        "working_directory": "$HOME",
-        "session_name": "wuxianpi-control-plane-entry",
-        "yield_time_ms": 1000
-      },
-      "description": "准备固定启动脚本的写入暂存目录。"
-    },
-    {
-      "id": "write-control-plane-entry",
-      "kind": "tool-from-result",
-      "tool": "write_file",
-      "sourceStep": "read-control-plane-entry",
-      "arguments": {
-        "environment": "repo:termux-home",
-        "path": ".local/share/wuxianpi/plugins/wuxianpi.first-install/control-plane/openhouse-control-plane-start",
-        "content": "{{steps.read-control-plane-entry.content}}"
-      },
-      "description": "暂存固定入口。"
-    },
-    {
-      "id": "write-service-manager-start",
-      "kind": "tool-from-result",
-      "tool": "write_file",
-      "sourceStep": "read-service-manager-start",
-      "arguments": {
-        "environment": "repo:termux-home",
-        "path": ".local/share/wuxianpi/plugins/wuxianpi.first-install/control-plane/start-service-manager.sh",
-        "content": "{{steps.read-service-manager-start.content}}"
-      },
-      "description": "暂存 Termux 启动实现。"
-    },
-    {
-      "id": "install-control-plane-entry",
-      "kind": "tool",
-      "tool": "termux_exec_command",
-      "arguments": {
-        "command": "set -eu; stage=\"$HOME/.local/share/wuxianpi/plugins/wuxianpi.first-install/control-plane\"; install -d \"$PREFIX/bin\" \"$PREFIX/libexec/openhouse\"; install -m 700 \"$stage/openhouse-control-plane-start\" \"$PREFIX/bin/openhouse-control-plane-start\"; install -m 700 \"$stage/start-service-manager.sh\" \"$PREFIX/libexec/openhouse/start-service-manager.sh\"",
-        "working_directory": "$HOME",
-        "session_name": "wuxianpi-control-plane-entry",
-        "yield_time_ms": 1000
-      },
-      "description": "原子替换两个固定脚本；此步骤不读取资源集合、token 或 service-manager 配置。"
-    },
-    {
       "id": "read-resource-updater",
       "kind": "tool",
       "tool": "read_rescue_plugin_document",
@@ -178,18 +110,6 @@
       "description": "All-in-One 使用 stage-setup 返回的命令运行已暂存的 /bin/wuxianpi-setup。"
     },
     {
-      "id": "start-openhouse-control-plane",
-      "kind": "tool",
-      "tool": "termux_exec_command",
-      "arguments": {
-        "command": "\"$PREFIX/bin/openhouse-control-plane-start\"",
-        "working_directory": "$HOME",
-        "session_name": "openhouse-control-plane-start",
-        "yield_time_ms": 1000
-      },
-      "description": "通过固定 Termux 入口启动 service-manager；原样保留 stdout、stderr 和退出码。"
-    },
-    {
       "id": "verify",
       "kind": "poll-tool",
       "tool": "get_wuxianpi_setup_status",
@@ -215,6 +135,18 @@
         "yield_time_ms": 1000
       },
       "description": "重新计算五个资源文件清单，验证 installed-set.json 与当前资源链接。"
+    },
+    {
+      "id": "start-openhouse-control-plane",
+      "kind": "tool",
+      "tool": "termux_exec_command",
+      "arguments": {
+        "command": "\"$PREFIX/bin/bash\" \"$HOME/.local/share/openhouseai/control-plane/current/inspect-control-plane-termux-native.sh\" start",
+        "working_directory": "$HOME",
+        "session_name": "openhouse-control-plane-start",
+        "yield_time_ms": 1000
+      },
+      "description": "通过控制面资源启动并验证 service-manager。"
     },
     {
       "id": "read-openhouse-registration-script",
