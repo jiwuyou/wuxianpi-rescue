@@ -31,6 +31,7 @@ async function resourceArchive(root: string, id: string, revision: string): Prom
       break;
     case "openhouse-runtime":
       await executable(path.join(source, "install.sh"), "exit 0");
+      await executable(path.join(source, "scripts/install.sh"), "exit 0");
       await executable(path.join(source, "scripts/check.sh"), "exit 0");
       await executable(path.join(source, "scripts/register-service.sh"), "exit 0");
       await executable(path.join(source, "bin/wuxianpi"), "exit 0");
@@ -73,6 +74,7 @@ function runUpdate(home: string, prefix: string, apkRoot: string, command: strin
       OPENHOUSEAI_APK_VERSION_CODE: "126",
       OPENHOUSEAI_DISABLE_NETWORK: "1",
       OPENHOUSEAI_SKIP_LIVE_HEALTH: "1",
+      OPENHOUSEAI_CANONICAL_RESOURCE_MANAGER_SOURCE: path.join(ROOT, "plugins/official/wuxianpi.resource-update/scripts/openhouse-resource-manager"),
     },
   });
   return { status: result.status, stdout: result.stdout, stderr: result.stderr };
@@ -137,6 +139,11 @@ test("resource updater converges five resources, repairs damage and rolls back a
     const firstApply = runUpdate(home, prefix, apkRoot, "apply");
     assert.equal(firstApply.status, 0, firstApply.stderr);
     assert.equal(JSON.parse(await readFile(path.join(manager, "installed-set.json"), "utf8")).sequence, 2026080901);
+    assert.equal(
+      await readFile(path.join(prefix, "bin/openhouse-resource-manager"), "utf8"),
+      await readFile(path.join(ROOT, "plugins/official/wuxianpi.resource-update/scripts/openhouse-resource-manager"), "utf8"),
+    );
+    assert.equal(await readFile(path.join(apkRoot, "apk-126", ".pending"), "utf8"), "pending\n");
 
     const unchanged = runUpdate(home, prefix, apkRoot, "plan");
     assert.equal(unchanged.status, 0, unchanged.stderr);
