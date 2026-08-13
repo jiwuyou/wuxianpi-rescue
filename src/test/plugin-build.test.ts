@@ -37,14 +37,14 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     assert.ok(firstInstall);
     assert.deepEqual(
       firstInstall.versions.map((candidate) => candidate.manifest.version),
-      ["1.0.11", "1.0.10", "1.0.9", "1.0.8", "1.0.7", "1.0.6", "1.0.5", "1.0.4", "1.0.3", "1.0.2", "1.0.1", "1.0.0"]
+      ["1.0.13", "1.0.10", "1.0.9", "1.0.8", "1.0.7", "1.0.6", "1.0.5", "1.0.4", "1.0.3", "1.0.2", "1.0.1", "1.0.0"]
     );
     assert.equal(firstInstall.versions.find((candidate) => candidate.manifest.version === "1.0.1")?.sha256,
       "0f18af13475719d8b4669a2ed2a3d90c2d4a406488f64a0a0104787a31fd5646");
     assert.equal(firstInstall.versions.find((candidate) => candidate.manifest.version === "1.0.0")?.sha256,
       "791424f96a6d59942e0d8e6ccebe5433fa4fe93e709e80e72fb6b7b30cdbded4");
     const release = firstInstall.versions[0];
-    assert.equal(release.manifest.version, "1.0.11");
+    assert.equal(release.manifest.version, "1.0.13");
     const archive = await readFile(path.join(temporary, "plugins", firstInstall.id, `${release.manifest.version}.zip`));
     assert.equal(archive.subarray(0, 2).toString("binary"), "PK");
     assert.equal(createHash("sha256").update(archive).digest("hex"), release.sha256);
@@ -100,7 +100,7 @@ test("builds validated deterministic plugin releases and catalog", async () => {
       { kind: "poll-tool", tool: "get_wuxianpi_setup_status" }
     );
     assert.equal(runCommand.when, "runtimeHost.externalTermux");
-    assert.match(String(runCommand.description), /只获取/);
+    assert.match(String(runCommand.description), /仅检查/);
     const configureExternalApps = workflow.steps.find((step: Record<string, unknown>) => step.id === "configure-external-apps");
     const reloadSettings = workflow.steps.find((step: Record<string, unknown>) => step.id === "reload-termux-settings");
     const verifyRunCommand = workflow.steps.find((step: Record<string, unknown>) => step.id === "verify-run-command");
@@ -169,20 +169,15 @@ test("builds validated deterministic plugin releases and catalog", async () => {
 
     const resourceUpdate = catalog.plugins.find((plugin) => plugin.id === "wuxianpi.resource-update");
     assert.ok(resourceUpdate);
-    assert.equal(resourceUpdate.latestVersion, "2.0.3");
+    assert.equal(resourceUpdate.latestVersion, "3.0.0");
     const resourceUpdateScript = await readFile(
       path.join(ROOT, "plugins", "official", resourceUpdate.id, "scripts", "update-resources.sh"),
       "utf8"
     );
-    assert.match(resourceUpdateScript, /CANONICAL_RESOURCE_MANAGER_SOURCE/);
-    assert.match(resourceUpdateScript, /install_canonical_manager/);
+    assert.match(resourceUpdateScript, /apk-resource-inbox/);
+    assert.match(resourceUpdateScript, /target-installed/);
     assert.match(resourceUpdateScript, /openhouse-resource-manager/);
-    const canonicalManager = await readFile(
-      path.join(ROOT, "plugins", "official", resourceUpdate.id, "scripts", "openhouse-resource-manager"),
-      "utf8"
-    );
-    assert.match(canonicalManager, /openhouse-core-stack/);
-    assert.doesNotMatch(canonicalManager, /verify_live_stack|start_control_plane|register_resources/);
+    assert.doesNotMatch(resourceUpdateScript, /sha256sum|tree_sha/);
 
     const serviceManagerGuide = await readFile(
       path.join(ROOT, "plugins", "official", "wuxianpi.service-manager", "docs", "guide.md"),

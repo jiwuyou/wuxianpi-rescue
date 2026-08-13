@@ -47,6 +47,8 @@ export interface ResourceCatalog {
 export interface ResourceSetMember {
   id: string;
   version: string;
+  archive: string;
+  size: number;
   sha256: string;
 }
 
@@ -182,15 +184,21 @@ export function validateResourceSetMetadata(input: unknown, id: string, version:
       throw new ResourceValidationError(`resource set member ${index} is invalid`);
     }
     const member = entry as Record<string, unknown>;
-    if (Object.keys(member).some((key) => !["id", "version", "sha256"].includes(key))) {
+    if (Object.keys(member).some((key) => !["id", "version", "archive", "size", "sha256"].includes(key))) {
       throw new ResourceValidationError(`resource set member ${index} has unknown fields`);
     }
     const memberId = requiredString(member.id, `resource set member ${index} id`, RESOURCE_ID_PATTERN);
     if (seen.has(memberId)) throw new ResourceValidationError(`resource set contains duplicate resource '${memberId}'`);
     seen.add(memberId);
+    const archive = requiredString(member.archive, `resource set member ${index} archive`, ARCHIVE_PATTERN);
+    if (!Number.isSafeInteger(member.size) || Number(member.size) < 1 || Number(member.size) > MAX_RESOURCE_SIZE) {
+      throw new ResourceValidationError(`resource set member ${index} size is invalid`);
+    }
     return {
       id: memberId,
       version: requiredString(member.version, `resource set member ${index} version`, VERSION_PATTERN),
+      archive,
+      size: Number(member.size),
       sha256: requiredString(member.sha256, `resource set member ${index} sha256`, SHA256_PATTERN)
     };
   });
@@ -467,7 +475,8 @@ export class ResourceStore {
       for (const member of release.resources) {
         const resource = resources.resources.find((candidate) => candidate.id === member.id);
         const published = resource?.versions.find((candidate) => candidate.version === member.version);
-        if (!published || published.sha256 !== member.sha256) {
+        if (!published || published.sha256 !== member.sha256 ||
+            published.archive !== member.archive || published.size !== member.size) {
           throw new ResourceValidationError(`resource set references unavailable or mismatched ${member.id}@${member.version}`);
         }
       }

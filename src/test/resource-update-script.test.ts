@@ -9,176 +9,87 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const SCRIPT = path.join(ROOT, "plugins/official/wuxianpi.resource-update/scripts/update-resources.sh");
+const MANAGER = path.resolve(ROOT, "../smallphoneai/openhouseai-app-ai-web/app/src/main/assets/smallphoneai/bootstrap/scripts/openhouse-resource-manager");
+const IDS = ["service-manager", "openhouse-control-plane", "openhouse-runtime", "wuyou", "openhouse-web"];
+const ARCHIVES: Record<string, string> = {
+  "service-manager": "service-manager.tgz", "openhouse-control-plane": "openhouse-control-plane.tgz",
+  "openhouse-runtime": "runtime-aarch64.tgz", wuyou: "wuyou.tgz", "openhouse-web": "openhouse-web.tgz",
+};
 
-async function executable(file: string, contents: string): Promise<void> {
+async function executable(file: string, body = "exit 0"): Promise<void> {
   await mkdir(path.dirname(file), { recursive: true });
-  await writeFile(file, `#!/bin/sh\nset -eu\n${contents}\n`);
-  await chmod(file, 0o755);
+  await writeFile(file, `#!/bin/sh\nset -eu\n${body}\n`); await chmod(file, 0o755);
 }
 
-async function resourceArchive(root: string, id: string, revision: string): Promise<Buffer> {
-  const source = path.join(root, `${id}-${revision}`);
-  await mkdir(source, { recursive: true });
-  switch (id) {
-    case "service-manager":
-      await executable(path.join(source, "service-manager"), 'if [ "${1:-}" = "--version" ]; then echo "service-manager fixture"; elif [ "${1:-}" = token ]; then echo fixture-token; fi');
-      await executable(path.join(source, "scripts/install.sh"), 'root=$(CDPATH= cd "$(dirname "$0")/.." && pwd); mkdir -p "$PREFIX/bin"; cp "$root/service-manager" "$PREFIX/bin/service-manager"; chmod 755 "$PREFIX/bin/service-manager"');
-      break;
-    case "openhouse-control-plane":
-      await executable(path.join(source, "start-control-plane-termux-native.sh"), "exit 0");
-      await executable(path.join(source, "repair-control-plane-termux-native.sh"), "exit 0");
-      await executable(path.join(source, "inspect-control-plane-termux-native.sh"), "exit 0");
-      break;
-    case "openhouse-runtime":
-      await executable(path.join(source, "install.sh"), "exit 0");
-      await executable(path.join(source, "scripts/install.sh"), "exit 0");
-      await executable(path.join(source, "scripts/check.sh"), "exit 0");
-      await executable(path.join(source, "scripts/register-service.sh"), "exit 0");
-      await executable(path.join(source, "bin/wuxianpi"), "exit 0");
-      break;
-    case "wuyou":
-      await executable(path.join(source, "wuyou"), `echo ${revision}`);
-      await executable(path.join(source, "scripts/install.sh"), "exit 0");
-      await executable(path.join(source, "scripts/check.sh"), "exit 0");
-      await executable(path.join(source, "scripts/register-service.sh"), "exit 0");
-      break;
-    case "openhouse-web":
-      await executable(path.join(source, "scripts/install.sh"), "exit 0");
-      await executable(path.join(source, "scripts/check.sh"), "exit 0");
-      await executable(path.join(source, "scripts/register-service.sh"), "exit 0");
-      break;
-    default:
-      throw new Error(`unknown fixture resource ${id}`);
+async function archive(root: string, id: string, revision: string): Promise<Buffer> {
+  const source = path.join(root, `${id}-${revision}`); await mkdir(path.join(source, "scripts"), { recursive: true });
+  await executable(path.join(source, "scripts/install.sh")); await executable(path.join(source, "scripts/check.sh"));
+  await executable(path.join(source, "scripts/register-service.sh"));
+  if (id === "service-manager") await executable(path.join(source, "service-manager"));
+  if (id === "openhouse-control-plane") await executable(path.join(source, "start-control-plane-termux-native.sh"));
+  if (id === "openhouse-runtime") { await executable(path.join(source, "install.sh")); await executable(path.join(source, "bin/wuxianpi")); }
+  if (id === "wuyou") {
+    await executable(path.join(source, "wuyou"), `echo ${revision}`);
+    if (revision === "broken") await executable(path.join(source, "scripts/install.sh"), "exit 17");
   }
-  const archive = path.join(root, `${id}-${revision}.tgz`);
-  const packed = spawnSync("tar", ["--sort=name", "--mtime=@0", "--owner=0", "--group=0", "--numeric-owner", "-czf", archive, "-C", source, "."], { encoding: "utf8" });
-  assert.equal(packed.status, 0, packed.stderr);
-  return readFile(archive);
+  const output = path.join(root, `${id}-${revision}.tgz`);
+  const packed = spawnSync("tar", ["--sort=name", "--mtime=@0", "--owner=0", "--group=0", "--numeric-owner", "-czf", output, "-C", source, "."], { encoding: "utf8" });
+  assert.equal(packed.status, 0, packed.stderr); return readFile(output);
 }
 
-function runUpdate(home: string, prefix: string, apkRoot: string, command: string): {
-  status: number | null;
-  stdout: string;
-  stderr: string;
-} {
-  const result = spawnSync("bash", [SCRIPT, command], {
-    encoding: "utf8",
-    env: {
-      ...process.env,
-      HOME: home,
-      PREFIX: prefix,
-      PATH: `${prefix}/bin:${process.env.PATH ?? ""}`,
-      OPENHOUSEAI_APK_RESOURCES_ROOT: apkRoot,
-      OPENHOUSEAI_RESOURCE_MANAGER_ROOT: path.join(home, ".local/share/openhouseai/resource-manager"),
-      OPENHOUSEAI_RESOURCE_INSTALL_ROOT: path.join(home, ".local/share/openhouseai/resources"),
-      OPENHOUSEAI_APK_VERSION_CODE: "126",
-      OPENHOUSEAI_DISABLE_NETWORK: "1",
-      OPENHOUSEAI_SKIP_LIVE_HEALTH: "1",
-      OPENHOUSEAI_CANONICAL_RESOURCE_MANAGER_SOURCE: path.join(ROOT, "plugins/official/wuxianpi.resource-update/scripts/openhouse-resource-manager"),
-    },
-  });
-  return { status: result.status, stdout: result.stdout, stderr: result.stderr };
+async function offer(home: string, work: string, version: string, sequence: number, releases: Map<string, {version: string; bytes: Buffer}>): Promise<void> {
+  const stage = path.join(work, `bundle-${sequence}`); const resourcesDir = path.join(stage, "resources");
+  await mkdir(resourcesDir, { recursive: true }); const resources = [];
+  for (const id of IDS) {
+    const release = releases.get(id)!; const archiveName = ARCHIVES[id];
+    await writeFile(path.join(resourcesDir, archiveName), release.bytes);
+    resources.push({ id, version: release.version, archive: archiveName, size: release.bytes.length, sha256: createHash("sha256").update(release.bytes).digest("hex") });
+  }
+  const set = { schema: 2, id: "openhouse-core-stack", version, sequence, abi: "arm64-v8a", minApkVersionCode: 126, resources };
+  await writeFile(path.join(resourcesDir, "resource-set.json"), JSON.stringify(set));
+  await writeFile(path.join(stage, "bundle-manifest.json"), JSON.stringify({ schema: 2, id: "openhouse-install-bundle", bundleId: `openhouse-core-stack-${sequence}`, apkVersionCode: 126, resourceSet: set }));
+  const inbox = path.join(home, `.local/share/openhouseai/apk-resource-inbox/com.wuxianpi-126-${sequence}`); await mkdir(inbox, { recursive: true });
+  const packed = spawnSync("tar", ["--sort=name", "--mtime=@0", "--owner=0", "--group=0", "--numeric-owner", "-cf", path.join(inbox, "openhouse-install-bundle.tar"), "-C", stage, "."], { encoding: "utf8" });
+  assert.equal(packed.status, 0, packed.stderr); await writeFile(path.join(inbox, ".ready"), "");
 }
 
-test("resource updater converges five resources, repairs damage and rolls back a set", async () => {
-  const temporary = await mkdtemp(path.join(os.tmpdir(), "wuxianpi-resource-update-"));
-  const home = path.join(temporary, "home");
-  const prefix = path.join(temporary, "prefix");
-  const apkRoot = path.join(home, ".local/share/openhouseai/update-resources");
-  const manager = path.join(home, ".local/share/openhouseai/resource-manager");
-  const ids = ["service-manager", "openhouse-control-plane", "openhouse-runtime", "wuyou", "openhouse-web"];
-  const archiveNames: Record<string, string> = {
-    "service-manager": "service-manager.tgz",
-    "openhouse-control-plane": "openhouse-control-plane.tgz",
-    "openhouse-runtime": "runtime-aarch64.tgz",
-    wuyou: "wuyou.tgz",
-    "openhouse-web": "openhouse-web.tgz",
-  };
+function run(home: string, prefix: string, command: string) {
+  const result = spawnSync("bash", [SCRIPT, command], { encoding: "utf8", env: {
+    ...process.env, HOME: home, PREFIX: prefix, PATH: `${prefix}/bin:${process.env.PATH ?? ""}`,
+    WUXIANPI_RESCUE_MARKET_URL: "http://127.0.0.1:9",
+    OPENHOUSEAI_RESOURCE_MANAGER_ROOT: path.join(home, ".local/share/openhouseai/resource-manager"),
+    OPENHOUSEAI_RESOURCE_INSTALL_ROOT: path.join(home, ".local/share/openhouseai/resources"),
+  }}); return result;
+}
+
+test("resource updater uses TAR offers, skips equal resources, applies one delta and refuses downgrade", async () => {
+  const work = await mkdtemp(path.join(os.tmpdir(), "wuxianpi-resource-update-")); const home = path.join(work, "home"); const prefix = path.join(work, "prefix");
   try {
     await mkdir(path.join(prefix, "bin"), { recursive: true });
-    const releases = new Map<string, { version: string; bytes: Buffer; sha256: string }>();
-    for (const id of ids) {
-      const bytes = await resourceArchive(temporary, id, "v1");
-      releases.set(id, { version: "1.0.0", bytes, sha256: createHash("sha256").update(bytes).digest("hex") });
-    }
-
-    const writeSet = async (directory: string, version: string, sequence: number, values: typeof releases, complete: boolean) => {
-      const payloads = path.join(directory, "product-payloads");
-      await mkdir(payloads, { recursive: true });
-      const resources = [];
-      for (const id of ids) {
-        const release = values.get(id)!;
-        await writeFile(path.join(payloads, archiveNames[id]), release.bytes);
-        resources.push({ id, version: release.version, sha256: release.sha256 });
-      }
-      await writeFile(path.join(payloads, "resource-set.json"), `${JSON.stringify({
-        schema: 2,
-        id: "openhouse-core-stack",
-        version,
-        sequence,
-        abi: "arm64-v8a",
-        minApkVersionCode: 126,
-        resources,
-      }, null, 2)}\n`);
-      if (complete) {
-        await writeFile(path.join(directory, ".complete"), '{"apkVersionCode":126}\n');
-        await writeFile(path.join(directory, ".pending"), "pending\n");
-      }
-    };
-
-    await writeSet(path.join(apkRoot, "apk-126"), "2026.08.09.1", 2026080901, releases, true);
-    await writeSet(path.join(apkRoot, "apk-incomplete"), "2099.01.01.1", 2099010101, releases, false);
-    await writeFile(path.join(apkRoot, "PENDING_APK_RESOURCES.json"), '{"apkVersionCode":126}\n');
-
-    const initialPlan = runUpdate(home, prefix, apkRoot, "plan");
-    assert.equal(initialPlan.status, 0, initialPlan.stderr);
-    assert.match(initialPlan.stdout, /target_resources=5/);
-    assert.match(initialPlan.stdout, /from_apk=5/);
-    assert.doesNotMatch(initialPlan.stdout, /2099\.01\.01\.1/);
-
-    const firstApply = runUpdate(home, prefix, apkRoot, "apply");
-    assert.equal(firstApply.status, 0, firstApply.stderr);
-    assert.equal(JSON.parse(await readFile(path.join(manager, "installed-set.json"), "utf8")).sequence, 2026080901);
-    assert.equal(
-      await readFile(path.join(prefix, "bin/openhouse-resource-manager"), "utf8"),
-      await readFile(path.join(ROOT, "plugins/official/wuxianpi.resource-update/scripts/openhouse-resource-manager"), "utf8"),
-    );
-    assert.equal(await readFile(path.join(apkRoot, "apk-126", ".pending"), "utf8"), "pending\n");
-
-    const unchanged = runUpdate(home, prefix, apkRoot, "plan");
-    assert.equal(unchanged.status, 0, unchanged.stderr);
-    assert.match(unchanged.stdout, /unchanged=5/);
-
-    await writeFile(path.join(home, ".local/share/openhouseai/resources/wuyou/versions/1.0.0/wuyou"), "damaged\n");
-    const repairPlan = runUpdate(home, prefix, apkRoot, "plan");
-    assert.equal(repairPlan.status, 0, repairPlan.stderr);
-    assert.match(repairPlan.stdout, /unchanged=4/);
-    assert.match(repairPlan.stdout, /from_(apk|cache)=1/);
-    const repaired = runUpdate(home, prefix, apkRoot, "apply");
-    assert.equal(repaired.status, 0, repaired.stderr);
-
-    const next = new Map(releases);
-    const nextWuyou = await resourceArchive(temporary, "wuyou", "v2");
-    next.set("wuyou", {
-      version: "1.0.1",
-      bytes: nextWuyou,
-      sha256: createHash("sha256").update(nextWuyou).digest("hex"),
-    });
-    await writeSet(path.join(apkRoot, "apk-127"), "2026.08.09.2", 2026080902, next, true);
-    const deltaPlan = runUpdate(home, prefix, apkRoot, "plan");
-    assert.equal(deltaPlan.status, 0, deltaPlan.stderr);
-    assert.match(deltaPlan.stdout, /unchanged=4/);
-    assert.match(deltaPlan.stdout, /from_apk=1/);
-    const secondApply = runUpdate(home, prefix, apkRoot, "apply");
-    assert.equal(secondApply.status, 0, secondApply.stderr);
-    assert.equal(JSON.parse(await readFile(path.join(manager, "installed-set.json"), "utf8")).sequence, 2026080902);
-
-    const rollback = runUpdate(home, prefix, apkRoot, "rollback");
-    assert.equal(rollback.status, 0, rollback.stderr);
-    assert.equal(JSON.parse(await readFile(path.join(manager, "installed-set.json"), "utf8")).sequence, 2026080901);
-    const verification = runUpdate(home, prefix, apkRoot, "verify");
-    assert.equal(verification.status, 0, verification.stderr);
-  } finally {
-    await rm(temporary, { recursive: true, force: true });
-  }
+    const managerScript = (await readFile(MANAGER, "utf8")).replace(/^#![^\n]+/, "#!/usr/bin/env bash");
+    await writeFile(path.join(prefix, "bin/openhouse-resource-manager"), managerScript); await chmod(path.join(prefix, "bin/openhouse-resource-manager"), 0o755);
+    await executable(path.join(prefix, "bin/wuxianpi-setup"), 'if [ -f "$HOME/fail-activation" ]; then exit 42; fi; echo activated >> "$HOME/activation.log"');
+    const first = new Map<string, {version: string; bytes: Buffer}>();
+    for (const id of IDS) first.set(id, { version: "1.0.0", bytes: await archive(work, id, "v1") });
+    await offer(home, work, "2026.08.12.1", 2026081201, first);
+    const initial = run(home, prefix, "plan"); assert.equal(initial.status, 0, initial.stderr); assert.match(initial.stdout, /changed=5/); assert.match(initial.stdout, /source=apk/);
+    const applied = run(home, prefix, "apply"); assert.equal(applied.status, 0, applied.stderr);
+    const unchanged = run(home, prefix, "plan"); assert.equal(unchanged.status, 0, unchanged.stderr); assert.match(unchanged.stdout, /changed=0/);
+    const broken = new Map(first); broken.set("wuyou", { version: "1.0.1", bytes: await archive(work, "wuyou", "broken") });
+    await offer(home, work, "2026.08.12.2", 2026081202, broken);
+    const failedContent = run(home, prefix, "apply"); assert.notEqual(failedContent.status, 0);
+    assert.equal(JSON.parse(await readFile(path.join(home, ".local/share/openhouseai/resource-manager/installed-set.json"), "utf8")).sequence, 2026081201);
+    assert.match(await readFile(path.join(home, ".local/share/openhouseai/resources/wuyou/current/wuyou"), "utf8"), /v1/);
+    await rm(path.join(home, ".local/share/openhouseai/apk-resource-inbox/com.wuxianpi-126-2026081202"), { recursive: true });
+    const next = new Map(first); next.set("wuyou", { version: "1.0.2", bytes: await archive(work, "wuyou", "v2") });
+    await offer(home, work, "2026.08.12.3", 2026081203, next);
+    const delta = run(home, prefix, "plan"); assert.equal(delta.status, 0, delta.stderr); assert.match(delta.stdout, /changed=1/); assert.match(delta.stdout, /resource=wuyou version=1.0.2 source=apk/);
+    await writeFile(path.join(home, "fail-activation"), "1");
+    const failedActivation = run(home, prefix, "apply"); assert.equal(failedActivation.status, 42, failedActivation.stderr);
+    assert.equal(JSON.parse(await readFile(path.join(home, ".local/share/openhouseai/resource-manager/installed-set.json"), "utf8")).sequence, 2026081203);
+    await rm(path.join(home, "fail-activation"));
+    const activationRetry = run(home, prefix, "apply"); assert.equal(activationRetry.status, 0, activationRetry.stderr); assert.match(activationRetry.stdout, /retrying independent activation/);
+    await rm(path.join(home, ".local/share/openhouseai/apk-resource-inbox/com.wuxianpi-126-2026081203"), { recursive: true });
+    const downgrade = run(home, prefix, "plan"); assert.equal(downgrade.status, 0, downgrade.stderr); assert.match(downgrade.stdout, /result=no-downgrade/);
+  } finally { await rm(work, { recursive: true, force: true }); }
 });

@@ -1,17 +1,16 @@
 {
   "schemaVersion": 1,
   "id": "wuxianpi.resource-update",
-  "version": "2.0.3",
+  "version": "3.0.0",
   "name": "APK 资源更新",
-  "description": "原子刷新 Termux 资源管理器后收敛五个静态资源内容；运行激活保持独立。",
+  "description": "比较 APK、市场和本机集合，仅获取差异资源，再调用固定内容管理器和独立激活器。",
   "category": "update",
   "minHostVersion": 12,
   "requiredCapabilities": ["setup-tools", "termux", "persistent-terminal"],
-  "tags": ["APK", "资源", "更新", "校验"],
+  "tags": ["APK", "资源", "差异更新"],
   "entryWorkflow": "workflows/update.json",
   "documents": [
     { "path": "docs/guide.md", "title": "资源更新说明" },
-    { "path": "scripts/update-resources.sh", "title": "资源更新引导脚本" },
-    { "path": "scripts/openhouse-resource-manager", "title": "Canonical 静态资源管理器" }
+    { "path": "scripts/update-resources.sh", "title": "资源更新编排脚本" }
   ]
 }

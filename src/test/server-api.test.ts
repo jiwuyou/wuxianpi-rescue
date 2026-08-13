@@ -167,7 +167,7 @@ test("serves, promotes and downloads resource API v2 releases and sets", async (
     assert.equal(range.status, 206);
     assert.equal((await range.arrayBuffer()).byteLength, 16);
 
-    const setMembers = [{ id: metadata.id, version: metadata.version, sha256: metadata.sha256 }];
+    const setMembers = [{ id: metadata.id, version: metadata.version, archive: metadata.archive, size: metadata.size, sha256: metadata.sha256 }];
     for (const [id, archiveName] of [
       ["service-manager", "service-manager.tgz"],
       ["openhouse-control-plane", "openhouse-control-plane.tgz"],
@@ -189,7 +189,7 @@ test("serves, promotes and downloads resource API v2 releases and sets", async (
         body: memberForm,
       });
       assert.equal(memberPublished.status, 201);
-      setMembers.push({ id, version: "1.0.0", sha256: metadata.sha256 });
+      setMembers.push({ id, version: "1.0.0", archive: archiveName, size: archive.length, sha256: metadata.sha256 });
     }
 
     const resourceSet = {
@@ -278,7 +278,7 @@ test("persists V2 resources, history and promotion pointers across store restart
       sequence: 2026080901,
       abi: "arm64-v8a",
       minApkVersionCode: 126,
-      resources: specs.map(([id]) => ({ id, version: "1.0.0", sha256: digest })),
+      resources: specs.map(([id, archiveName]) => ({ id, version: "1.0.0", archive: archiveName, size: archive.length, sha256: digest })),
     }, "openhouse-core-stack", "2026.08.09.1");
     await first.publishResourceSet(set);
     await first.promoteResourceSet(set.id, set.version);
