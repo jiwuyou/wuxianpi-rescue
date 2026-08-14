@@ -36,6 +36,13 @@ const CORE_RESOURCE_ARCHIVES = new Map([
 const LEGACY_CORE_STACK_IDS = [
   "openhouse-control-plane", "openhouse-runtime", "openhouse-web", "service-manager", "wuyou",
 ].sort();
+const HISTORICAL_MARKET_CORE_STACK_IDS = [
+  "service-manager", "openhouse-runtime", "wuyou", "openhouse-web",
+  "openhouse-resource-manager", "openhouse-resource-import", "wuxianpi-setup",
+  "openhouse-install-runtime-components", "openhouse-start-smallphone", "openhouse-register-component",
+  "openhouse-control-plane-start", "openhouse-termux-services-env", "openhouse-start-service-manager",
+  "openhouse-repair-control-plane", "openhouse-inspect-control-plane",
+].sort();
 const MARKET_CORE_STACK_IDS = [
   "service-manager", "openhouse-runtime", "wuyou", "openhouse-web",
   "openhouse-resource-manager", "openhouse-resource-import", "wuxianpi-setup",
@@ -263,8 +270,10 @@ export function validateResourceSetMetadata(
   if (id === "openhouse-core-stack") {
     const actual = resources.map((resource) => resource.id).sort();
     const matchesLegacy = JSON.stringify(actual) === JSON.stringify(LEGACY_CORE_STACK_IDS);
+    const matchesHistoricalMarket = JSON.stringify(actual) === JSON.stringify(HISTORICAL_MARKET_CORE_STACK_IDS);
     const matchesMarket = JSON.stringify(actual) === JSON.stringify(MARKET_CORE_STACK_IDS);
-    if ((requireCurrentContract && !matchesMarket) || (!requireCurrentContract && !matchesLegacy && !matchesMarket)) {
+    if ((requireCurrentContract && !matchesMarket) ||
+        (!requireCurrentContract && !matchesLegacy && !matchesHistoricalMarket && !matchesMarket)) {
       throw new ResourceValidationError("openhouse-core-stack resources do not match a supported contract");
     }
   }

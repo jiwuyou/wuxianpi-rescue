@@ -36,6 +36,33 @@ function tgzFixture(name = "payload.txt", contents = "resource-fixture"): Buffer
   return gzipSync(Buffer.concat([header, padded, Buffer.alloc(1024)]));
 }
 
+test("accepts historical market resource sets while requiring the current contract for promotion", () => {
+  const historicalIds = [
+    "service-manager", "openhouse-runtime", "wuyou", "openhouse-web",
+    "openhouse-resource-manager", "openhouse-resource-import", "wuxianpi-setup",
+    "openhouse-install-runtime-components", "openhouse-start-smallphone", "openhouse-register-component",
+    "openhouse-control-plane-start", "openhouse-termux-services-env", "openhouse-start-service-manager",
+    "openhouse-repair-control-plane", "openhouse-inspect-control-plane",
+  ];
+  const release = {
+    schema: 2,
+    id: "openhouse-core-stack",
+    version: "2026.08.14.2",
+    sequence: 2026081402,
+    abi: "arm64-v8a",
+    minApkVersionCode: 126,
+    resources: historicalIds.map((id) => ({
+      id,
+      version: "1.0.1",
+      archive: `${id}.tgz`,
+      size: 1,
+      sha256: "a".repeat(64),
+    })),
+  };
+  assert.equal(validateResourceSetMetadata(release, release.id, release.version).resources.length, 15);
+  assert.throws(() => validateResourceSetMetadata(release, release.id, release.version, true), /supported contract/);
+});
+
 test("serves catalog, downloads and persistent versioned comments", async () => {
   const temporary = await mkdtemp(path.join(os.tmpdir(), "wuxianpi-api-"));
   const databasePath = path.join(temporary, "comments.db");
