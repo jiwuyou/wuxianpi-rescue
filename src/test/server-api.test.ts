@@ -170,9 +170,19 @@ test("serves, promotes and downloads resource API v2 releases and sets", async (
     const setMembers = [{ id: metadata.id, version: metadata.version, archive: metadata.archive, size: metadata.size, sha256: metadata.sha256 }];
     for (const [id, archiveName] of [
       ["service-manager", "service-manager.tgz"],
-      ["openhouse-control-plane", "openhouse-control-plane.tgz"],
       ["wuyou", "wuyou.tgz"],
       ["openhouse-web", "openhouse-web.tgz"],
+      ["openhouse-resource-manager", "openhouse-resource-manager.tgz"],
+      ["openhouse-resource-import", "openhouse-resource-import.tgz"],
+      ["wuxianpi-setup", "wuxianpi-setup.tgz"],
+      ["openhouse-install-runtime-components", "openhouse-install-runtime-components.tgz"],
+      ["openhouse-start-smallphone", "openhouse-start-smallphone.tgz"],
+      ["openhouse-register-component", "openhouse-register-component.tgz"],
+      ["openhouse-control-plane-start", "openhouse-control-plane-start.tgz"],
+      ["openhouse-termux-services-env", "openhouse-termux-services-env.tgz"],
+      ["openhouse-start-service-manager", "openhouse-start-service-manager.tgz"],
+      ["openhouse-repair-control-plane", "openhouse-repair-control-plane.tgz"],
+      ["openhouse-inspect-control-plane", "openhouse-inspect-control-plane.tgz"],
     ] as const) {
       const memberMetadata = {
         ...metadata,
@@ -189,6 +199,12 @@ test("serves, promotes and downloads resource API v2 releases and sets", async (
         body: memberForm,
       });
       assert.equal(memberPublished.status, 201);
+      const memberPromoted = await fetch(`${base}/api/v2/management/resources/${id}/promote`, {
+        method: "POST",
+        headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+        body: JSON.stringify({ version: "1.0.0" }),
+      });
+      assert.equal(memberPromoted.status, 200);
       setMembers.push({ id, version: "1.0.0", archive: archiveName, size: archive.length, sha256: metadata.sha256 });
     }
 
@@ -199,8 +215,18 @@ test("serves, promotes and downloads resource API v2 releases and sets", async (
       sequence: 2026080901,
       abi: "arm64-v8a",
       minApkVersionCode: 126,
+      guide: {
+        title: "OpenHouse Core Stack test guide",
+        markdown: "# Test guide\n\nInstall static content before activation.",
+      },
       resources: setMembers
     };
+    const missingGuide = await fetch(`${base}/api/v2/management/resource-sets/openhouse-core-stack/releases/2026.08.09.1`, {
+      method: "PUT",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify({ ...resourceSet, guide: undefined })
+    });
+    assert.equal(missingGuide.status, 400);
     const setPublished = await fetch(`${base}/api/v2/management/resource-sets/openhouse-core-stack/releases/2026.08.09.1`, {
       method: "PUT",
       headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
@@ -214,10 +240,11 @@ test("serves, promotes and downloads resource API v2 releases and sets", async (
     });
     assert.equal(setPromoted.status, 200);
     const setDetail = await (await fetch(`${base}/api/v2/resource-sets/openhouse-core-stack`)).json() as {
-      latestVersion: string; versions: Array<{ sequence: number }>
+      latestVersion: string; versions: Array<{ sequence: number; guide?: { title: string } }>
     };
     assert.equal(setDetail.latestVersion, resourceSet.version);
     assert.deepEqual(setDetail.versions.map((release) => release.sequence), [resourceSet.sequence]);
+    assert.equal(setDetail.versions[0].guide?.title, resourceSet.guide.title);
 
     const corrupt = Buffer.from("not-gzip");
     const corruptMetadata = {

@@ -35,10 +35,20 @@ if (!/^[a-z0-9]+(?:[.-][a-z0-9]+)*$/.test(value.id ?? "")) throw new Error("inva
 if (!/^[0-9A-Za-z][0-9A-Za-z.+-]{0,79}$/.test(value.version ?? "")) throw new Error("invalid resource set version");
 if (!Number.isSafeInteger(value.sequence) || value.sequence < 1) throw new Error("invalid resource set sequence");
 if (value.abi !== "arm64-v8a" || !Number.isSafeInteger(value.minApkVersionCode)) throw new Error("invalid resource set compatibility");
-const expected = ["openhouse-control-plane", "openhouse-runtime", "openhouse-web", "service-manager", "wuyou"];
+if (!value.guide || typeof value.guide.title !== "string" || !value.guide.title.trim()
+    || typeof value.guide.markdown !== "string" || !value.guide.markdown.trim()
+    || Buffer.byteLength(value.guide.markdown, "utf8") > 32768) {
+  throw new Error("resource set guide is required and must not exceed 32 KiB");
+}
+const expected = [
+  "openhouse-install-runtime-components", "openhouse-control-plane-start",
+  "openhouse-inspect-control-plane", "openhouse-register-component", "openhouse-repair-control-plane",
+  "openhouse-resource-import", "openhouse-resource-manager", "openhouse-runtime", "openhouse-start-service-manager",
+  "openhouse-start-smallphone", "openhouse-termux-services-env", "openhouse-web", "service-manager", "wuxianpi-setup", "wuyou"
+].sort();
 const actual = Array.isArray(value.resources) ? value.resources.map((item) => item.id).sort() : [];
 if (value.id === "openhouse-core-stack" && JSON.stringify(actual) !== JSON.stringify(expected)) {
-  throw new Error("openhouse-core-stack must contain exactly the five canonical resources");
+  throw new Error("openhouse-core-stack must contain the current market resource contract");
 }
 process.stdout.write(`${value.id}\n${value.version}\n`);
 NODE

@@ -9,13 +9,35 @@ const ARCHIVE_PATTERN = /^[a-z0-9][a-z0-9._-]*\.tgz$/;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const MAX_RESOURCE_SIZE = 60 * 1024 * 1024;
 const MAX_UNCOMPRESSED_SIZE = 512 * 1024 * 1024;
+const MAX_RESOURCE_SET_GUIDE_SIZE = 32 * 1024;
 const CORE_RESOURCE_ARCHIVES = new Map([
   ["service-manager", "service-manager.tgz"],
   ["openhouse-control-plane", "openhouse-control-plane.tgz"],
   ["openhouse-runtime", "runtime-aarch64.tgz"],
   ["wuyou", "wuyou.tgz"],
   ["openhouse-web", "openhouse-web.tgz"],
+  ["openhouse-resource-manager", "openhouse-resource-manager.tgz"],
+  ["openhouse-resource-import", "openhouse-resource-import.tgz"],
+  ["wuxianpi-setup", "wuxianpi-setup.tgz"],
+  ["openhouse-install-runtime-components", "openhouse-install-runtime-components.tgz"],
+  ["openhouse-start-smallphone", "openhouse-start-smallphone.tgz"],
+  ["openhouse-register-component", "openhouse-register-component.tgz"],
+  ["openhouse-control-plane-start", "openhouse-control-plane-start.tgz"],
+  ["openhouse-termux-services-env", "openhouse-termux-services-env.tgz"],
+  ["openhouse-start-service-manager", "openhouse-start-service-manager.tgz"],
+  ["openhouse-repair-control-plane", "openhouse-repair-control-plane.tgz"],
+  ["openhouse-inspect-control-plane", "openhouse-inspect-control-plane.tgz"],
 ]);
+const LEGACY_CORE_STACK_IDS = [
+  "openhouse-control-plane", "openhouse-runtime", "openhouse-web", "service-manager", "wuyou",
+].sort();
+const MARKET_CORE_STACK_IDS = [
+  "service-manager", "openhouse-runtime", "wuyou", "openhouse-web",
+  "openhouse-resource-manager", "openhouse-resource-import", "wuxianpi-setup",
+  "openhouse-install-runtime-components", "openhouse-start-smallphone", "openhouse-register-component",
+  "openhouse-control-plane-start", "openhouse-termux-services-env", "openhouse-start-service-manager",
+  "openhouse-repair-control-plane", "openhouse-inspect-control-plane",
+].sort();
 
 export interface ResourceRelease {
   id: string;
@@ -59,6 +81,10 @@ export interface ResourceSetRelease {
   sequence: number;
   abi: "arm64-v8a";
   minApkVersionCode: number;
+  guide?: {
+    title: string;
+    markdown: string;
+  };
   resources: ResourceSetMember[];
 }
 
@@ -152,12 +178,17 @@ export function validateResourceMetadata(input: unknown, id: string, version: st
   };
 }
 
-export function validateResourceSetMetadata(input: unknown, id: string, version: string): ResourceSetRelease {
+export function validateResourceSetMetadata(
+  input: unknown,
+  id: string,
+  version: string,
+  requireCurrentContract = false,
+): ResourceSetRelease {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
     throw new ResourceValidationError("resource set metadata must be an object");
   }
   const value = input as Record<string, unknown>;
-  const allowed = new Set(["schema", "id", "version", "sequence", "abi", "minApkVersionCode", "resources"]);
+  const allowed = new Set(["schema", "id", "version", "sequence", "abi", "minApkVersionCode", "guide", "resources"]);
   for (const key of Object.keys(value)) {
     if (!allowed.has(key)) throw new ResourceValidationError(`resource set metadata has unknown field '${key}'`);
   }
@@ -177,6 +208,26 @@ export function validateResourceSetMetadata(input: unknown, id: string, version:
   }
   if (!Array.isArray(value.resources) || value.resources.length === 0) {
     throw new ResourceValidationError("resource set resources must not be empty");
+  }
+  let guide: ResourceSetRelease["guide"];
+  if (value.guide !== undefined) {
+    if (!value.guide || typeof value.guide !== "object" || Array.isArray(value.guide)) {
+      throw new ResourceValidationError("resource set guide must be an object");
+    }
+    const candidate = value.guide as Record<string, unknown>;
+    if (Object.keys(candidate).some((key) => !["title", "markdown"].includes(key))) {
+      throw new ResourceValidationError("resource set guide has unknown fields");
+    }
+    if (typeof candidate.title !== "string" || candidate.title.trim().length === 0 || candidate.title.length > 120) {
+      throw new ResourceValidationError("resource set guide title is invalid");
+    }
+    if (typeof candidate.markdown !== "string" || candidate.markdown.trim().length === 0 ||
+        Buffer.byteLength(candidate.markdown, "utf8") > MAX_RESOURCE_SET_GUIDE_SIZE) {
+      throw new ResourceValidationError("resource set guide markdown is invalid");
+    }
+    guide = { title: candidate.title.trim(), markdown: candidate.markdown };
+  } else if (requireCurrentContract) {
+    throw new ResourceValidationError("resource set guide is required");
   }
   const seen = new Set<string>();
   const resources = value.resources.map((entry, index) => {
@@ -204,9 +255,10 @@ export function validateResourceSetMetadata(input: unknown, id: string, version:
   });
   if (id === "openhouse-core-stack") {
     const actual = resources.map((resource) => resource.id).sort();
-    const expected = [...CORE_RESOURCE_ARCHIVES.keys()].sort();
-    if (JSON.stringify(actual) !== JSON.stringify(expected)) {
-      throw new ResourceValidationError("openhouse-core-stack must contain exactly the five canonical resources");
+    const matchesLegacy = JSON.stringify(actual) === JSON.stringify(LEGACY_CORE_STACK_IDS);
+    const matchesMarket = JSON.stringify(actual) === JSON.stringify(MARKET_CORE_STACK_IDS);
+    if ((requireCurrentContract && !matchesMarket) || (!requireCurrentContract && !matchesLegacy && !matchesMarket)) {
+      throw new ResourceValidationError("openhouse-core-stack resources do not match a supported contract");
     }
   }
   return {
@@ -216,6 +268,7 @@ export function validateResourceSetMetadata(input: unknown, id: string, version:
     sequence: Number(value.sequence),
     abi: "arm64-v8a",
     minApkVersionCode: Number(value.minApkVersionCode),
+    ...(guide ? { guide } : {}),
     resources
   };
 }
@@ -515,10 +568,20 @@ export class ResourceStore {
     return this.serialized(async () => {
       const current = await this.readResourceSetCatalog();
       const resourceSet = current.resourceSets.find((candidate) => candidate.id === id);
-      if (!resourceSet || !resourceSet.versions.some((release) => release.version === version)) {
+      const release = resourceSet?.versions.find((candidate) => candidate.version === version);
+      if (!resourceSet || !release) {
         throw new ResourceNotFoundError(`${id}@${version} is not published`);
       }
       if (resourceSet.latestVersion === version) return { catalog: current, status: "already-promoted" };
+      const resources = await this.readCatalog();
+      for (const member of release.resources) {
+        const resource = resources.resources.find((candidate) => candidate.id === member.id);
+        if (resource?.latestVersion !== member.version) {
+          throw new ResourceValidationError(
+            `resource set cannot be promoted before ${member.id}@${member.version}`
+          );
+        }
+      }
       const resourceSets = current.resourceSets.map((candidate) => candidate.id === id ? { ...candidate, latestVersion: version } : candidate);
       const next = this.resourceSetCatalog(resourceSets);
       await this.writeJsonAtomic(this.resourceSetCatalogPath, next);

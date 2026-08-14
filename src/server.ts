@@ -417,7 +417,7 @@ export async function createHubServer(options: HubServerOptions = {}): Promise<{
       if (resourceSetUploadMatch && request.method === "PUT") {
         requireManagementAccess(request, managementToken);
         const release = validateResourceSetMetadata(
-          await body(request), resourceSetUploadMatch[1], resourceSetUploadMatch[2]
+          await body(request), resourceSetUploadMatch[1], resourceSetUploadMatch[2], true
         );
         const result = await resourceStore.publishResourceSet(release);
         json(response, result.status === "published" ? 201 : 200, {
