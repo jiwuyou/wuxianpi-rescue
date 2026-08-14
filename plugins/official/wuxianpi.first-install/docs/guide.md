@@ -83,7 +83,9 @@ APK content 事务失败时回滚 `current`。市场资源逐个提交，失败�
 
 激活前会创建 `$PREFIX/var/service`、`$PREFIX/var/log` 和 `$PREFIX/var/lock`，检查 `_termux-services-env.sh`、50/60 脚本、`$PREFIX/bin/openhouse-control-plane-start` 与 `$PREFIX/libexec/openhouse/start-service-manager.sh` 可执行，并确认它们使用 Termux Bash 绝对 shebang。组件注册必须通过 `registry/apply` 同时提交含 `ai` layer 的组件和 `yuanshengwuxianpi` 服务，再执行 `registry/sync`；只写入 `services.d` 不视为注册成功。
 
-失败写入具体 `activationFailure`，例如 `canonical_auth_failed`、`registry_sync_failed` 或 `wuxianpi_health_failed`。成功后 Termux 通过 OpenHouse connection bridge 上报 service-manager URL 和 Token；OpenHouse 自身直接读取 Android 私有存储，不通过该 HTTP 端口。
+失败写入具体 `activationFailure`，例如 `canonical_auth_failed`、`registry_sync_failed` 或 `wuxianpi_health_failed`。激活前，维修助手先调用 `ensure_openhouse_connection_bridge`，并把返回的 `bridgeId` 传给 `wuxianpi-setup activate --connection-bridge-id`。成功后 Termux 通过匹配的 OpenHouse connection bridge 上报 service-manager URL 和 Token；OpenHouse 自身直接读取 Android 私有存储，不通过该 HTTP 端口。
+
+Bridge 端口无法监听时不阻塞核心安装。维修助手可执行 `wuxianpi-setup connection-info`，然后把返回的 `serviceManagerBaseUrl` 和 `token` 传给 `write_service_manager_connection`，直接保存到 Android 私有存储；该恢复路径完全不经过 Bridge HTTP。
 
 ## APK offer 完成
 

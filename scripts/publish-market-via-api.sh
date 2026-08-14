@@ -16,6 +16,7 @@ Options:
 Environment:
   WUXIANPI_RESCUE_MANAGEMENT_URL    Public management base URL
   WUXIANPI_RESCUE_MANAGEMENT_TOKEN   Bearer token for the management API
+  WUXIANPI_RESCUE_MANAGEMENT_RESOLVE Optional curl --resolve target for the private/Tailscale management endpoint
 USAGE
 }
 
@@ -84,12 +85,21 @@ fi
 
 BASE_URL="${WUXIANPI_RESCUE_MANAGEMENT_URL:-}"
 TOKEN="${WUXIANPI_RESCUE_MANAGEMENT_TOKEN:-}"
+RESOLVE="${WUXIANPI_RESCUE_MANAGEMENT_RESOLVE:-}"
 [ -n "$BASE_URL" ] || { echo "WUXIANPI_RESCUE_MANAGEMENT_URL is required" >&2; exit 1; }
 [ -n "$TOKEN" ] || { echo "WUXIANPI_RESCUE_MANAGEMENT_TOKEN is required" >&2; exit 1; }
 BASE_URL="${BASE_URL%/}"
 
+api_curl() {
+  if [ -n "$RESOLVE" ]; then
+    curl --resolve "$RESOLVE" "$@"
+  else
+    curl "$@"
+  fi
+}
+
 UPLOAD_RESPONSE="$WORK_DIR/upload.json"
-curl -q --fail --silent --show-error \
+api_curl -q --fail --silent --show-error \
   -X PUT \
   -H "Authorization: Bearer $TOKEN" \
   -F "metadata=<${METADATA_PATH};type=application/json" \
@@ -98,7 +108,7 @@ curl -q --fail --silent --show-error \
 cat "$UPLOAD_RESPONSE"
 
 if [ "$PROMOTE" -eq 1 ]; then
-  curl -q --fail --silent --show-error \
+  api_curl -q --fail --silent --show-error \
     -X POST \
     -H "Authorization: Bearer $TOKEN" \
     -H "Content-Type: application/json" \
@@ -108,7 +118,7 @@ if [ "$PROMOTE" -eq 1 ]; then
 fi
 
 PUBLIC_RESPONSE="$WORK_DIR/public.json"
-curl -q --fail --silent --show-error \
+api_curl -q --fail --silent --show-error \
   "$BASE_URL/api/v1/plugins/$PLUGIN_ID" > "$PUBLIC_RESPONSE"
 node - "$PUBLIC_RESPONSE" "$PLUGIN_ID" "$VERSION" "$PROMOTE" <<'NODE'
 const fs = require("node:fs");
