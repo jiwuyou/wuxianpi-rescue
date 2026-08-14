@@ -50,8 +50,8 @@ test("implements initialize, tools/list and tools/call over HTTP", async () => {
         arguments: { pluginId: "wuxianpi.first-install", path: "docs/guide.md" }
       }
     });
-    assert.match(document.payload.result.structuredContent.content, /联网时安装并复用 `wuxianpi\.resource-update 3\.0\.0`/);
-    assert.match(document.payload.result.structuredContent.content, /市场不可用时直接使用 APK 集合继续激活/);
+    assert.match(document.payload.result.structuredContent.content, /首次安装不依赖资源更新插件/);
+    assert.match(document.payload.result.structuredContent.content, /Ubuntu 在核心 offer 完成后单独安装/);
     assert.match(document.payload.result.structuredContent.content, /openhouse-install-bundle\.tar/);
     assert.match(document.payload.result.structuredContent.content, /核心资源集合/);
     assert.match(document.payload.result.structuredContent.content, /openhouse-control-plane-start/);
