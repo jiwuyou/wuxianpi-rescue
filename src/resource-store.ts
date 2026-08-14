@@ -19,7 +19,12 @@ const CORE_RESOURCE_ARCHIVES = new Map([
   ["openhouse-resource-manager", "openhouse-resource-manager.tgz"],
   ["openhouse-resource-import", "openhouse-resource-import.tgz"],
   ["wuxianpi-setup", "wuxianpi-setup.tgz"],
+  ["openhouse-bootstrap", "openhouse-bootstrap.tgz"],
   ["openhouse-install-runtime-components", "openhouse-install-runtime-components.tgz"],
+  ["openhouse-install-ubuntu", "openhouse-install-ubuntu.tgz"],
+  ["openhouse-update-ubuntu-packages", "openhouse-update-ubuntu-packages.tgz"],
+  ["openhouse-ubuntu-mirror-policy", "openhouse-ubuntu-mirror-policy.tgz"],
+  ["openhouse-retry-profile", "openhouse-retry-profile.tgz"],
   ["openhouse-start-smallphone", "openhouse-start-smallphone.tgz"],
   ["openhouse-register-component", "openhouse-register-component.tgz"],
   ["openhouse-control-plane-start", "openhouse-control-plane-start.tgz"],
@@ -34,7 +39,9 @@ const LEGACY_CORE_STACK_IDS = [
 const MARKET_CORE_STACK_IDS = [
   "service-manager", "openhouse-runtime", "wuyou", "openhouse-web",
   "openhouse-resource-manager", "openhouse-resource-import", "wuxianpi-setup",
-  "openhouse-install-runtime-components", "openhouse-start-smallphone", "openhouse-register-component",
+  "openhouse-bootstrap", "openhouse-install-runtime-components", "openhouse-install-ubuntu",
+  "openhouse-update-ubuntu-packages", "openhouse-ubuntu-mirror-policy", "openhouse-retry-profile",
+  "openhouse-start-smallphone", "openhouse-register-component",
   "openhouse-control-plane-start", "openhouse-termux-services-env", "openhouse-start-service-manager",
   "openhouse-repair-control-plane", "openhouse-inspect-control-plane",
 ].sort();

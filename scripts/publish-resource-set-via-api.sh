@@ -41,7 +41,9 @@ if (!value.guide || typeof value.guide.title !== "string" || !value.guide.title.
   throw new Error("resource set guide is required and must not exceed 32 KiB");
 }
 const expected = [
-  "openhouse-install-runtime-components", "openhouse-control-plane-start",
+  "openhouse-bootstrap", "openhouse-install-runtime-components", "openhouse-install-ubuntu",
+  "openhouse-update-ubuntu-packages", "openhouse-ubuntu-mirror-policy", "openhouse-retry-profile",
+  "openhouse-control-plane-start",
   "openhouse-inspect-control-plane", "openhouse-register-component", "openhouse-repair-control-plane",
   "openhouse-resource-import", "openhouse-resource-manager", "openhouse-runtime", "openhouse-start-service-manager",
   "openhouse-start-smallphone", "openhouse-termux-services-env", "openhouse-web", "service-manager", "wuxianpi-setup", "wuyou"
