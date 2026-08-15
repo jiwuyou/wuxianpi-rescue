@@ -53,7 +53,7 @@ test("implements initialize, tools/list and tools/call over HTTP", async () => {
     assert.match(document.payload.result.structuredContent.content, /首次安装不依赖资源更新插件/);
     assert.match(document.payload.result.structuredContent.content, /Android 私有连接确认都完成后单独安装/);
     assert.match(document.payload.result.structuredContent.content, /openhouse-install-bundle\.tar/);
-    assert.match(document.payload.result.structuredContent.content, /市场优先与离线回退/);
+    assert.match(document.payload.result.structuredContent.content, /市场 promoted/);
     assert.match(document.payload.result.structuredContent.content, /openhouse-control-plane-start/);
   } finally {
     await instance.close();

@@ -37,14 +37,14 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     assert.ok(firstInstall);
     assert.deepEqual(
       firstInstall.versions.map((candidate) => candidate.manifest.version),
-      ["1.0.22", "1.0.21", "1.0.10", "1.0.9", "1.0.8", "1.0.7", "1.0.6", "1.0.5", "1.0.4", "1.0.3", "1.0.2", "1.0.1", "1.0.0"]
+      ["1.0.23", "1.0.21", "1.0.10", "1.0.9", "1.0.8", "1.0.7", "1.0.6", "1.0.5", "1.0.4", "1.0.3", "1.0.2", "1.0.1", "1.0.0"]
     );
     assert.equal(firstInstall.versions.find((candidate) => candidate.manifest.version === "1.0.1")?.sha256,
       "0f18af13475719d8b4669a2ed2a3d90c2d4a406488f64a0a0104787a31fd5646");
     assert.equal(firstInstall.versions.find((candidate) => candidate.manifest.version === "1.0.0")?.sha256,
       "791424f96a6d59942e0d8e6ccebe5433fa4fe93e709e80e72fb6b7b30cdbded4");
     const release = firstInstall.versions[0];
-    assert.equal(release.manifest.version, "1.0.22");
+    assert.equal(release.manifest.version, "1.0.23");
     const archive = await readFile(path.join(temporary, "plugins", firstInstall.id, `${release.manifest.version}.zip`));
     assert.equal(archive.subarray(0, 2).toString("binary"), "PK");
     assert.equal(createHash("sha256").update(archive).digest("hex"), release.sha256);
@@ -119,6 +119,8 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     assert.match(String(marketContent.arguments.command), /\.guide\.markdown/);
     assert.match(String(marketContent.arguments.command), /market_content=unavailable/);
     assert.doesNotMatch(String(marketContent.arguments.command), /resources \| length/);
+    assert.doesNotMatch(String(marketContent.arguments.command), /resources-v2/);
+    assert.doesNotMatch(String(marketContent.arguments.command), /sha256sum/);
     assert.ok(workflow.steps.indexOf(initializeBase) < workflow.steps.indexOf(stageSetup));
     assert.ok(workflow.steps.indexOf(stageSetup) < workflow.steps.indexOf(runSetup));
     const verifyLocalContent = workflow.steps.find((step: Record<string, unknown>) => step.id === "verify-local-content");
@@ -150,7 +152,8 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     assert.match(String(activation.arguments.command), /_termux-services-env\.sh/);
     assert.match(String(activation.arguments.command), /50-install-runtime-components\.sh/);
     assert.match(String(activation.arguments.command), /60-start-smallphone\.sh/);
-    assert.doesNotMatch(String(activation.arguments.command), /--request/);
+    assert.match(String(activation.arguments.command), /--request/);
+    assert.match(String(activation.arguments.command), /request\.json/);
     assert.equal(completeOffer.tool, "complete_apk_resource_offer");
     assert.equal(storeConnection.tool, "store_service_manager_connection");
     assert.equal(readConnection.tool, "termux_exec_command");

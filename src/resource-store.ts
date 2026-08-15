@@ -240,8 +240,6 @@ export function validateResourceSetMetadata(
       throw new ResourceValidationError("resource set guide markdown is invalid");
     }
     guide = { title: candidate.title.trim(), markdown: candidate.markdown };
-  } else if (requireCurrentContract) {
-    throw new ResourceValidationError("resource set guide is required");
   }
   const seen = new Set<string>();
   const resources = value.resources.map((entry, index) => {
@@ -276,6 +274,9 @@ export function validateResourceSetMetadata(
         (!requireCurrentContract && !matchesLegacy && !matchesHistoricalMarket && !matchesMarket)) {
       throw new ResourceValidationError("openhouse-core-stack resources do not match a supported contract");
     }
+  }
+  if (requireCurrentContract && !guide) {
+    throw new ResourceValidationError("resource set guide is required");
   }
   return {
     schema: 2,
