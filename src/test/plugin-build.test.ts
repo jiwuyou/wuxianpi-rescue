@@ -37,14 +37,14 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     assert.ok(firstInstall);
     assert.deepEqual(
       firstInstall.versions.map((candidate) => candidate.manifest.version),
-      ["1.0.21", "1.0.10", "1.0.9", "1.0.8", "1.0.7", "1.0.6", "1.0.5", "1.0.4", "1.0.3", "1.0.2", "1.0.1", "1.0.0"]
+      ["1.0.22", "1.0.21", "1.0.10", "1.0.9", "1.0.8", "1.0.7", "1.0.6", "1.0.5", "1.0.4", "1.0.3", "1.0.2", "1.0.1", "1.0.0"]
     );
     assert.equal(firstInstall.versions.find((candidate) => candidate.manifest.version === "1.0.1")?.sha256,
       "0f18af13475719d8b4669a2ed2a3d90c2d4a406488f64a0a0104787a31fd5646");
     assert.equal(firstInstall.versions.find((candidate) => candidate.manifest.version === "1.0.0")?.sha256,
       "791424f96a6d59942e0d8e6ccebe5433fa4fe93e709e80e72fb6b7b30cdbded4");
     const release = firstInstall.versions[0];
-    assert.equal(release.manifest.version, "1.0.21");
+    assert.equal(release.manifest.version, "1.0.22");
     const archive = await readFile(path.join(temporary, "plugins", firstInstall.id, `${release.manifest.version}.zip`));
     assert.equal(archive.subarray(0, 2).toString("binary"), "PK");
     assert.equal(createHash("sha256").update(archive).digest("hex"), release.sha256);
@@ -77,7 +77,7 @@ test("builds validated deterministic plugin releases and catalog", async () => {
       { kind: stageSetup.kind, tool: stageSetup.tool },
       { kind: "tool", tool: "start_wuxianpi_setup" }
     );
-    assert.match(String(stageSetup.when), /market-content.*fallback/);
+    assert.equal(stageSetup.when, undefined);
     assert.deepEqual(
       { kind: runSetup.kind, tool: runSetup.tool, sourceStep: runSetup.sourceStep },
       { kind: "tool-from-result", tool: "termux_exec_command", sourceStep: "stage-setup" }
@@ -103,7 +103,7 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     assert.ok(workflow.steps.indexOf(runCommand) < workflow.steps.indexOf(configureExternalApps));
     assert.ok(workflow.steps.indexOf(configureExternalApps) < workflow.steps.indexOf(reloadSettings));
     assert.ok(workflow.steps.indexOf(reloadSettings) < workflow.steps.indexOf(verifyRunCommand));
-    assert.match(String(runSetup.description), /APK canonical TAR/);
+    assert.match(String(runSetup.description), /已投递的 TAR/);
     const baseCommand = String(initializeBase.arguments.command);
     assert.doesNotMatch(baseCommand, /pkg upgrade/);
     assert.doesNotMatch(baseCommand, /libncursesw/);
@@ -117,10 +117,14 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     assert.match(String(marketContent.arguments.command), /api\/v2\/resource-sets\/openhouse-core-stack/);
     assert.match(String(marketContent.arguments.command), /openhouse-resource-manager.*market/);
     assert.match(String(marketContent.arguments.command), /\.guide\.markdown/);
-    assert.match(String(marketContent.arguments.command), /market_content=fallback/);
-    assert.ok(workflow.steps.indexOf(initializeBase) < workflow.steps.indexOf(marketContent));
-    assert.ok(workflow.steps.indexOf(marketContent) < workflow.steps.indexOf(stageSetup));
+    assert.match(String(marketContent.arguments.command), /market_content=unavailable/);
+    assert.doesNotMatch(String(marketContent.arguments.command), /resources \| length/);
+    assert.ok(workflow.steps.indexOf(initializeBase) < workflow.steps.indexOf(stageSetup));
     assert.ok(workflow.steps.indexOf(stageSetup) < workflow.steps.indexOf(runSetup));
+    const verifyLocalContent = workflow.steps.find((step: Record<string, unknown>) => step.id === "verify-local-content");
+    assert.ok(workflow.steps.indexOf(runSetup) < workflow.steps.indexOf(verifyLocalContent));
+    assert.ok(workflow.steps.indexOf(verifyLocalContent) < workflow.steps.indexOf(marketContent));
+    assert.ok(workflow.steps.indexOf(marketContent) < workflow.steps.indexOf(verifyContent));
     assert.equal(workflow.executionPolicy.afterPersistentTermux, "termux_exec_command");
     assert.equal(workflow.executionPolicy.longRunningCommands, "termux_exec_command");
     assert.match(String(verify.description), /activation=ready/);
@@ -155,6 +159,7 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     assert.equal(confirmConnection.tool, "store_service_manager_connection");
     assert.match(String(installUbuntu.arguments.command), /wuxianpi-setup.*ubuntu/);
     assert.match(String(installUbuntu.arguments.command), /proot-distro/);
+    assert.doesNotMatch(String(verifyContent.arguments.command), /resources \| length/);
     assert.ok(workflow.steps.indexOf(runSetup) < workflow.steps.indexOf(verifyContent));
     assert.ok(workflow.steps.indexOf(verifyContent) < workflow.steps.indexOf(activation));
     assert.ok(workflow.steps.indexOf(ensureBridge) < workflow.steps.indexOf(activation));
@@ -180,9 +185,9 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     assert.match(firstInstallGuide, /首次安装不依赖资源更新插件/);
     assert.match(firstInstallGuide, /Android 私有连接确认都完成后单独安装/);
     assert.match(firstInstallGuide, /openhouse-install-bundle\.tar/);
-    assert.match(firstInstallGuide, /市场优先/);
+    assert.match(firstInstallGuide, /本地投递与市场补齐/);
     assert.match(firstInstallGuide, /16 个单脚本资源/);
-    assert.match(firstInstallGuide, /All-in-One 与 Native 的离线回退使用同一份 TAR/);
+    assert.match(firstInstallGuide, /All-in-One 与 Native 使用同一份 Android 投递 TAR/);
     assert.match(firstInstallGuide, /注册资源/);
     assert.match(firstInstallGuide, /三个独立阶段/);
     assert.match(firstInstallGuide, /RUN_COMMAND/);
