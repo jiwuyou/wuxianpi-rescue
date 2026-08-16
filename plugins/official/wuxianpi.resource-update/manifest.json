@@ -1,16 +1,15 @@
 {
   "schemaVersion": 1,
   "id": "wuxianpi.resource-update",
-  "version": "3.0.0",
-  "name": "APK 资源更新",
-  "description": "比较 APK、市场和本机集合，仅获取差异资源，再调用固定内容管理器和独立激活器。",
+  "version": "4.0.1",
+  "name": "APK 配套更新",
+  "description": "检查并修复 APK 使用的 Android 私有 service-manager 连接，不更新 WuxianPi 或 Termux 资源。",
   "category": "update",
-  "minHostVersion": 12,
+  "minHostVersion": 14,
   "requiredCapabilities": ["setup-tools", "termux", "persistent-terminal"],
-  "tags": ["APK", "资源", "差异更新"],
+  "tags": ["APK", "Android", "连接"],
   "entryWorkflow": "workflows/update.json",
   "documents": [
-    { "path": "docs/guide.md", "title": "资源更新说明" },
-    { "path": "scripts/update-resources.sh", "title": "资源更新编排脚本" }
+    { "path": "docs/guide.md", "title": "APK 配套更新说明" }
   ]
 }

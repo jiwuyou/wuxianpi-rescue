@@ -28,7 +28,7 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     assert.ok(pluginIds.has(requiredId), `missing required plugin ${requiredId}`);
     }
     const runtime = catalog.plugins.find((plugin) => plugin.id === "wuxianpi.session-runtime");
-    assert.equal(runtime?.latestVersion, "1.0.1");
+    assert.equal(runtime?.latestVersion, "1.0.2");
     assert.equal(runtime?.versions[0].manifest.sessionRole, "runtime");
     assert.deepEqual(
       runtime?.versions[0].manifest.actions.map((action) => action.id),
@@ -222,15 +222,13 @@ test("builds validated deterministic plugin releases and catalog", async () => {
 
     const resourceUpdate = catalog.plugins.find((plugin) => plugin.id === "wuxianpi.resource-update");
     assert.ok(resourceUpdate);
-    assert.equal(resourceUpdate.latestVersion, "3.0.0");
-    const resourceUpdateScript = await readFile(
-      path.join(ROOT, "plugins", "official", resourceUpdate.id, "scripts", "update-resources.sh"),
-      "utf8"
+    assert.equal(resourceUpdate.latestVersion, "4.0.1");
+    assert.equal(resourceUpdate.versions[0].manifest.name, "APK 配套更新");
+    assert.deepEqual(resourceUpdate.versions[0].workflows, ["workflows/update.json"]);
+    assert.deepEqual(
+      resourceUpdate.versions[0].documents.map((document) => document.path),
+      ["docs/guide.md"]
     );
-    assert.match(resourceUpdateScript, /apk-resource-inbox/);
-    assert.match(resourceUpdateScript, /target-installed/);
-    assert.match(resourceUpdateScript, /openhouse-resource-manager/);
-    assert.doesNotMatch(resourceUpdateScript, /sha256sum|tree_sha/);
 
     const serviceManagerGuide = await readFile(
       path.join(ROOT, "plugins", "official", "wuxianpi.service-manager", "docs", "guide.md"),

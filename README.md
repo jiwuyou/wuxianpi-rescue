@@ -24,7 +24,7 @@ npm start
 6. 拒绝覆盖内容或 SHA-256 已变化的同版本发布；
 7. 按 SemVer 稳定排序并生成 `public/catalog.json`。
 
-资源包与插件包分开管理。资源使用破坏性升级后的 API V2 和持久化 `/data/releases-v2`；旧 `/api/v1/resources`、`/resources.json` 与 `/resources/...` 均已退役并返回 `410 Gone`。`wuxianpi.resource-update 2.0.0` 负责按完整资源集合比较、下载差异、安装和回滚，`wuxianpi.first-install 1.0.6` 只准备宿主环境、获取最新资源更新器并注册桌面组件。
+资源包与插件包分开管理。资源使用破坏性升级后的 API V2 和持久化 `/data/releases-v2`；旧 `/api/v1/resources`、`/resources.json` 与 `/resources/...` 均已退役并返回 `410 Gone`。当前 `wuxianpi.resource-update 4.0.0` 只负责 APK 更新后的 Android 私有 service-manager 连接确认，不更新 WuxianPi 或 Termux 运行资源；首次安装仍由 `wuxianpi.first-install` 独立负责。
 
 插件发布后不可覆盖同一版本。内容有任何变化都必须递增 `manifest.json` 的 `version`；完全相同的重复构建可以通过。
 
