@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "wuxianpi.setup-finish",
+  "version": "1.0.0",
+  "name": "安装收尾",
+  "description": "整理首次安装结果到维修记忆，预览并可选反馈问题，最后引导打开 WuxianPi。",
+  "category": "setup",
+  "minHostVersion": 14,
+  "requiredCapabilities": ["setup-tools"],
+  "tags": ["首次安装", "收尾", "反馈", "记忆"],
+  "entryWorkflow": "workflows/finish.json",
+  "actions": [
+    {
+      "id": "setup-finish",
+      "title": "完成安装收尾",
+      "icon": "check-circle",
+      "priority": 70,
+      "prompt": "请启动并完整执行最新的 wuxianpi.setup-finish 收尾工作流；不要重新安装资源，只读取状态、整理记忆、处理可选反馈，最后引导我打开 WuxianPi。",
+      "visibleWhen": "always",
+      "requiresPlugins": ["wuxianpi.setup-finish"]
+    }
+  ],
+  "documents": [
+    { "path": "docs/guide.md", "title": "安装收尾说明" }
+  ]
+}

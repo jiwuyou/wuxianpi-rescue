@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "id": "wuxianpi.setup-finish.finish",
+  "title": "首次安装收尾",
+  "executionPolicy": {
+    "serviceLifecycle": "none"
+  },
+  "steps": [
+    {
+      "id": "read-setup-status",
+      "kind": "tool",
+      "tool": "get_wuxianpi_setup_status",
+      "description": "读取首次安装最终状态。只读取，不重新运行安装或激活。"
+    },
+    {
+      "id": "read-apk-offer",
+      "kind": "tool",
+      "tool": "inspect_apk_resource_offer",
+      "description": "读取 APK、资源集合和 offer 版本，用于收尾摘要。不要显示或保存任何 Token。"
+    },
+    {
+      "id": "read-memory",
+      "kind": "tool",
+      "tool": "read_rescue_memory",
+      "description": "读取当前维修记忆，避免重复追加同一次安装摘要。"
+    },
+    {
+      "id": "write-memory",
+      "kind": "tool",
+      "tool": "patch_rescue_memory",
+      "arguments": {
+        "expectedRevision": "{{steps.read-memory.revision}}",
+        "section": "completed",
+        "content": "首次安装收尾：按真实状态填写首次安装时间、APK/资源集合版本、核心资源、WuxianPi 激活、连接保存、Ubuntu 状态，以及仍需处理的事项。只写稳定摘要，不写 Token、密钥、完整日志或聊天内容。",
+        "source": "plugin",
+        "confidence": "high",
+        "userConfirmed": false
+      },
+      "description": "根据真实状态写入一次简短、可重复检查的安装完成摘要；已存在相同摘要时跳过。记忆写入失败不影响后续反馈和打开 WuxianPi。"
+    },
+    {
+      "id": "feedback-consent",
+      "kind": "user-action",
+      "description": "只有状态中存在失败、警告或未完成项目时才询问：安装过程中发现了一些问题，是否允许整理反馈？用户拒绝则记录 feedbackStatus=skipped 并继续。"
+    },
+    {
+      "id": "list-installed-plugins",
+      "kind": "tool",
+      "when": "用户允许整理反馈",
+      "tool": "list_installed_rescue_plugins",
+      "description": "读取 wuxianpi.first-install 的当前版本，作为反馈草稿的目标版本。"
+    },
+    {
+      "id": "draft-feedback",
+      "kind": "tool",
+      "when": "用户允许整理反馈且用户确认草稿内容",
+      "tool": "draft_rescue_plugin_comment",
+      "arguments": {
+        "pluginId": "wuxianpi.first-install",
+        "pluginVersion": "{{steps.list-installed-plugins.first-install.activeVersion}}",
+        "type": "compatibility_report",
+        "content": "只填写用户已经看到并确认的反馈草稿：问题摘要、发生阶段、版本、错误码、必要的末尾日志和用户补充说明。不得包含 Token、密钥、管理密钥、完整日志或隐藏附件。",
+        "environment": {}
+      },
+      "description": "先在聊天中完整展示并允许用户修改反馈草稿；只有用户确认草稿后才保存本地草稿。"
+    },
+    {
+      "id": "publish-feedback",
+      "kind": "tool",
+      "when": "反馈草稿已保存且用户要求发送",
+      "tool": "publish_rescue_plugin_comment",
+      "arguments": {
+        "draftId": "{{steps.draft-feedback.draftId}}"
+      },
+      "description": "准备用户确认发布卡片。工具不会直接发送；必须由用户点击卡片确认。发送失败保留草稿，不影响安装。"
+    },
+    {
+      "id": "open-wuxianpi",
+      "kind": "tool",
+      "tool": "open_wuxianpi",
+      "description": "最后显示固定说明：\n\n首次安装已完成。\n\n以后请直接使用 WuxianPi 完成日常对话、安装更新和问题处理。\n维修助手主要用于首次安装和故障修复，和apk更新。\n\n随后提供“打开 WuxianPi”按钮。不要自动打开，等待用户点击。"
+    }
+  ]
+}
