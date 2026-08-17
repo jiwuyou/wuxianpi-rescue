@@ -40,17 +40,25 @@ if (!value.guide || typeof value.guide.title !== "string" || !value.guide.title.
     || Buffer.byteLength(value.guide.markdown, "utf8") > 32768) {
   throw new Error("resource set guide is required and must not exceed 32 KiB");
 }
-const expected = [
+const requiredCore = [
   "openhouse-bootstrap", "openhouse-install-runtime-components", "openhouse-install-ubuntu",
   "openhouse-update-ubuntu-packages", "openhouse-ubuntu-mirror-policy", "openhouse-retry-profile",
   "openhouse-control-plane-start",
   "openhouse-inspect-control-plane", "openhouse-register-component", "openhouse-repair-control-plane",
   "openhouse-resource-import", "openhouse-resource-manager", "openhouse-runtime", "openhouse-start-service-manager",
   "openhouse-start-smallphone", "openhouse-termux-services-env", "openhouse-web", "service-manager", "wuxianpi-setup", "wuyou"
-].sort();
-const actual = Array.isArray(value.resources) ? value.resources.map((item) => item.id).sort() : [];
-if (value.id === "openhouse-core-stack" && JSON.stringify(actual) !== JSON.stringify(expected)) {
-  throw new Error("openhouse-core-stack must contain the current market resource contract");
+];
+const members = Array.isArray(value.resources) ? value.resources : [];
+const actual = new Set(members.map((item) => item.id));
+if (value.id === "openhouse-core-stack") {
+  for (const id of requiredCore) if (!actual.has(id)) throw new Error(`openhouse-core-stack is missing core resource ${id}`);
+  for (const item of members) {
+    if (/^wuxianpi-package-[a-z0-9][a-z0-9.-]*$/.test(item.id)) {
+      if (item.kind !== "wuxianpi-package" || item.archive !== `${item.id}.tgz`) throw new Error(`invalid WuxianPi Package resource ${item.id}`);
+    } else if (!requiredCore.includes(item.id)) {
+      throw new Error(`unknown openhouse-core-stack resource ${item.id}`);
+    }
+  }
 }
 process.stdout.write(`${value.id}\n${value.version}\n`);
 NODE

@@ -43,7 +43,7 @@ const HISTORICAL_MARKET_CORE_STACK_IDS = [
   "openhouse-control-plane-start", "openhouse-termux-services-env", "openhouse-start-service-manager",
   "openhouse-repair-control-plane", "openhouse-inspect-control-plane",
 ].sort();
-const MARKET_CORE_STACK_IDS = [
+const PREVIOUS_MARKET_CORE_STACK_IDS = [
   "service-manager", "openhouse-runtime", "wuyou", "openhouse-web",
   "openhouse-resource-manager", "openhouse-resource-import", "wuxianpi-setup",
   "openhouse-bootstrap", "openhouse-install-runtime-components", "openhouse-install-ubuntu",
@@ -52,6 +52,7 @@ const MARKET_CORE_STACK_IDS = [
   "openhouse-control-plane-start", "openhouse-termux-services-env", "openhouse-start-service-manager",
   "openhouse-repair-control-plane", "openhouse-inspect-control-plane",
 ].sort();
+const MARKET_CORE_STACK_IDS = PREVIOUS_MARKET_CORE_STACK_IDS;
 
 export interface ResourceRelease {
   id: string;
@@ -65,6 +66,7 @@ export interface ResourceRelease {
   mirrors: string[];
   minApkVersionCode?: number;
   maxApkVersionCode?: number;
+  kind?: "wuxianpi-package";
 }
 
 export interface CatalogResource {
@@ -86,6 +88,7 @@ export interface ResourceSetMember {
   archive: string;
   size: number;
   sha256: string;
+  kind?: "wuxianpi-package";
 }
 
 export interface ResourceSetRelease {
@@ -143,7 +146,7 @@ export function validateResourceMetadata(input: unknown, id: string, version: st
   const value = input as Record<string, unknown>;
   const allowed = new Set([
     "id", "version", "archive", "compression", "abi", "size", "sha256", "url", "mirrors",
-    "minApkVersionCode", "maxApkVersionCode"
+    "minApkVersionCode", "maxApkVersionCode", "kind"
   ]);
   for (const key of Object.keys(value)) {
     if (!allowed.has(key)) throw new ResourceValidationError(`resource metadata has unknown field '${key}'`);
@@ -159,6 +162,11 @@ export function validateResourceMetadata(input: unknown, id: string, version: st
   if (canonicalArchive && archive !== canonicalArchive) {
     throw new ResourceValidationError(`${id} must use archive ${canonicalArchive}`);
   }
+  const packageResource = /^wuxianpi-package-[a-z0-9][a-z0-9.-]*$/.test(id);
+  if (packageResource && (value.kind !== "wuxianpi-package" || archive !== `${id}.tgz`)) {
+    throw new ResourceValidationError(`${id} must be a WuxianPi Package resource`);
+  }
+  if (!packageResource && value.kind !== undefined) throw new ResourceValidationError(`${id} cannot declare a Package resource kind`);
   if (value.compression !== "gzip" || value.abi !== "arm64-v8a") {
     throw new ResourceValidationError("resource must be gzip arm64-v8a");
   }
@@ -187,6 +195,7 @@ export function validateResourceMetadata(input: unknown, id: string, version: st
     sha256: digest,
     url: expectedUrl,
     mirrors: [...mirrors],
+    ...(packageResource ? { kind: "wuxianpi-package" as const } : {}),
     ...(minApkVersionCode ? { minApkVersionCode } : {}),
     ...(maxApkVersionCode ? { maxApkVersionCode } : {})
   };
@@ -247,13 +256,18 @@ export function validateResourceSetMetadata(
       throw new ResourceValidationError(`resource set member ${index} is invalid`);
     }
     const member = entry as Record<string, unknown>;
-    if (Object.keys(member).some((key) => !["id", "version", "archive", "size", "sha256"].includes(key))) {
+    if (Object.keys(member).some((key) => !["id", "version", "archive", "size", "sha256", "kind"].includes(key))) {
       throw new ResourceValidationError(`resource set member ${index} has unknown fields`);
     }
     const memberId = requiredString(member.id, `resource set member ${index} id`, RESOURCE_ID_PATTERN);
     if (seen.has(memberId)) throw new ResourceValidationError(`resource set contains duplicate resource '${memberId}'`);
     seen.add(memberId);
     const archive = requiredString(member.archive, `resource set member ${index} archive`, ARCHIVE_PATTERN);
+    const isPackage = /^wuxianpi-package-[a-z0-9][a-z0-9.-]*$/.test(memberId);
+    if (isPackage && (member.kind !== "wuxianpi-package" || archive !== `${memberId}.tgz`)) {
+      throw new ResourceValidationError(`resource set Package member ${memberId} is invalid`);
+    }
+    if (!isPackage && member.kind !== undefined) throw new ResourceValidationError(`resource set core member ${memberId} cannot declare Package kind`);
     if (!Number.isSafeInteger(member.size) || Number(member.size) < 1 || Number(member.size) > MAX_RESOURCE_SIZE) {
       throw new ResourceValidationError(`resource set member ${index} size is invalid`);
     }
@@ -262,16 +276,23 @@ export function validateResourceSetMetadata(
       version: requiredString(member.version, `resource set member ${index} version`, VERSION_PATTERN),
       archive,
       size: Number(member.size),
-      sha256: requiredString(member.sha256, `resource set member ${index} sha256`, SHA256_PATTERN)
+      sha256: requiredString(member.sha256, `resource set member ${index} sha256`, SHA256_PATTERN),
+      ...(isPackage ? { kind: "wuxianpi-package" as const } : {}),
     };
   });
   if (id === "openhouse-core-stack") {
     const actual = resources.map((resource) => resource.id).sort();
     const matchesLegacy = JSON.stringify(actual) === JSON.stringify(LEGACY_CORE_STACK_IDS);
     const matchesHistoricalMarket = JSON.stringify(actual) === JSON.stringify(HISTORICAL_MARKET_CORE_STACK_IDS);
-    const matchesMarket = JSON.stringify(actual) === JSON.stringify(MARKET_CORE_STACK_IDS);
-    if ((requireCurrentContract && !matchesMarket) ||
-        (!requireCurrentContract && !matchesLegacy && !matchesHistoricalMarket && !matchesMarket)) {
+    const matchesPreviousMarket = JSON.stringify(actual) === JSON.stringify(PREVIOUS_MARKET_CORE_STACK_IDS);
+    const hasRequiredCore = MARKET_CORE_STACK_IDS.every((required) => actual.includes(required));
+    const hasOnlyKnownResources = resources.every((resource) =>
+      CORE_RESOURCE_ARCHIVES.has(resource.id) || resource.kind === "wuxianpi-package");
+    const hasValidPackages = resources.every((resource) =>
+      !resource.id.startsWith("wuxianpi-package-") || resource.kind === "wuxianpi-package");
+    const matchesMarket = hasRequiredCore && hasOnlyKnownResources && hasValidPackages;
+    if ((requireCurrentContract && (!hasRequiredCore || !hasOnlyKnownResources || !hasValidPackages)) ||
+        (!requireCurrentContract && !matchesLegacy && !matchesHistoricalMarket && !matchesPreviousMarket && !matchesMarket)) {
       throw new ResourceValidationError("openhouse-core-stack resources do not match a supported contract");
     }
   }

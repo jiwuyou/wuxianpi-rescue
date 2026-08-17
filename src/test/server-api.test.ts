@@ -215,12 +215,14 @@ test("serves, promotes and downloads resource API v2 releases and sets", async (
       ["openhouse-start-service-manager", "openhouse-start-service-manager.tgz"],
       ["openhouse-repair-control-plane", "openhouse-repair-control-plane.tgz"],
       ["openhouse-inspect-control-plane", "openhouse-inspect-control-plane.tgz"],
+      ["wuxianpi-package-io.openhouse.pi-mcp-adapter", "wuxianpi-package-io.openhouse.pi-mcp-adapter.tgz"],
     ] as const) {
       const memberMetadata = {
         ...metadata,
         id,
         archive: archiveName,
         url: `/resources-v2/${id}/1.0.0/${archiveName}`,
+        ...(id.startsWith("wuxianpi-package-") ? { kind: "wuxianpi-package" } : {}),
       };
       const memberForm = new FormData();
       memberForm.set("metadata", new Blob([JSON.stringify(memberMetadata)], { type: "application/json" }), "metadata.json");
@@ -237,7 +239,8 @@ test("serves, promotes and downloads resource API v2 releases and sets", async (
         body: JSON.stringify({ version: "1.0.0" }),
       });
       assert.equal(memberPromoted.status, 200);
-      setMembers.push({ id, version: "1.0.0", archive: archiveName, size: archive.length, sha256: metadata.sha256 });
+      setMembers.push({ id, version: "1.0.0", archive: archiveName, size: archive.length, sha256: metadata.sha256,
+        ...(id.startsWith("wuxianpi-package-") ? { kind: "wuxianpi-package" } : {}) });
     }
 
     const resourceSet = {

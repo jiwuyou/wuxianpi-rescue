@@ -38,14 +38,14 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     assert.ok(firstInstall);
     assert.deepEqual(
       firstInstall.versions.map((candidate) => candidate.manifest.version),
-      ["1.0.24", "1.0.23", "1.0.21", "1.0.10", "1.0.9", "1.0.8", "1.0.7", "1.0.6", "1.0.5", "1.0.4", "1.0.3", "1.0.2", "1.0.1", "1.0.0"]
+      ["1.0.28", "1.0.23", "1.0.21", "1.0.10", "1.0.9", "1.0.8", "1.0.7", "1.0.6", "1.0.5", "1.0.4", "1.0.3", "1.0.2", "1.0.1", "1.0.0"]
     );
     assert.equal(firstInstall.versions.find((candidate) => candidate.manifest.version === "1.0.1")?.sha256,
       "0f18af13475719d8b4669a2ed2a3d90c2d4a406488f64a0a0104787a31fd5646");
     assert.equal(firstInstall.versions.find((candidate) => candidate.manifest.version === "1.0.0")?.sha256,
       "791424f96a6d59942e0d8e6ccebe5433fa4fe93e709e80e72fb6b7b30cdbded4");
     const release = firstInstall.versions[0];
-    assert.equal(release.manifest.version, "1.0.24");
+    assert.equal(release.manifest.version, "1.0.28");
     const archive = await readFile(path.join(temporary, "plugins", firstInstall.id, `${release.manifest.version}.zip`));
     assert.equal(archive.subarray(0, 2).toString("binary"), "PK");
     assert.equal(createHash("sha256").update(archive).digest("hex"), release.sha256);
@@ -76,6 +76,7 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     const marketContent = workflow.steps.find((step: Record<string, unknown>) => step.id === "market-content");
     const verifyContent = workflow.steps.find((step: Record<string, unknown>) => step.id === "verify-content");
     const verify = workflow.steps.find((step: Record<string, unknown>) => step.id === "verify-activation");
+    const reconcilePackages = workflow.steps.find((step: Record<string, unknown>) => step.id === "reconcile-preinstalled-packages");
     assert.deepEqual(
       { kind: stageSetup.kind, tool: stageSetup.tool },
       { kind: "tool", tool: "start_wuxianpi_setup" }
@@ -89,6 +90,10 @@ test("builds validated deterministic plugin releases and catalog", async () => {
       { kind: verify.kind, tool: verify.tool },
       { kind: "poll-tool", tool: "get_wuxianpi_setup_status" }
     );
+    assert.equal(reconcilePackages.tool, "termux_exec_command");
+    assert.match(String(reconcilePackages.arguments.command), /reconcile-preinstalled/);
+    assert.match(String(reconcilePackages.arguments.command), /distribution-packages/);
+    assert.doesNotMatch(String(reconcilePackages.arguments.command), /github-bug-reporter|small-app-guide|pi-mcp-adapter/);
     assert.equal(runCommand.when, "runtimeHost.externalTermux");
     assert.match(String(runCommand.description), /仅检查/);
     const configureExternalApps = workflow.steps.find((step: Record<string, unknown>) => step.id === "configure-external-apps");
@@ -113,6 +118,7 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     assert.match(baseCommand, /zstd/);
     assert.doesNotMatch(baseCommand, /proot-distro/);
     assert.match(baseCommand, /termux-services/);
+    assert.match(baseCommand, /git/);
     assert.match(baseCommand, /nodejs-lts/);
     assert.match(baseCommand, /node_major/);
     assert.match(baseCommand, /nodejs.*24|24.*nodejs/);
@@ -170,6 +176,7 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     assert.ok(workflow.steps.indexOf(verifyContent) < workflow.steps.indexOf(activation));
     assert.ok(workflow.steps.indexOf(ensureBridge) < workflow.steps.indexOf(activation));
     assert.ok(workflow.steps.indexOf(activation) < workflow.steps.indexOf(verify));
+    assert.ok(workflow.steps.indexOf(verify) < workflow.steps.indexOf(reconcilePackages));
     assert.ok(workflow.steps.indexOf(verify) < workflow.steps.indexOf(storeConnection));
     assert.ok(workflow.steps.indexOf(storeConnection) < workflow.steps.indexOf(readConnection));
     assert.ok(workflow.steps.indexOf(readConnection) < workflow.steps.indexOf(writeConnection));
@@ -198,7 +205,7 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     assert.match(firstInstallGuide, /Android 私有连接确认都完成后单独安装/);
     assert.match(firstInstallGuide, /openhouse-install-bundle\.tar/);
     assert.match(firstInstallGuide, /本地投递与市场补齐/);
-    assert.match(firstInstallGuide, /16 个单脚本资源/);
+    assert.match(firstInstallGuide, /任意数量的 `wuxianpi-package-\*`/);
     assert.match(firstInstallGuide, /All-in-One 与 Native 使用同一份 Android 投递 TAR/);
     assert.match(firstInstallGuide, /注册资源/);
     assert.match(firstInstallGuide, /三个独立阶段/);
