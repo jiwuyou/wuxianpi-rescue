@@ -245,7 +245,9 @@ index=0
 while IFS= read -r repo; do
   [ -n "$repo" ] || continue
   index=$((index + 1))
-  (probe_repo "$repo" > "$tmp_dir/$index") &
+  result_file="$tmp_dir/result-$index"
+  probe_dir="$tmp_dir/probe-$index"
+  (probe_repo "$repo" "$probe_dir" > "$result_file") &
 done <<EOF
 $(candidate_rows "$region")
 EOF
@@ -253,9 +255,10 @@ wait || true
 
 ranked="$tmp_dir/ranked"
 : > "$ranked"
-for result_file in "$tmp_dir"/*; do
-  [ -s "$result_file" ] || continue
-  IFS=$'\t' read -r status repo value index_path < "$result_file"
+for result_file in "$tmp_dir"/result-*; do
+  [ -f "$result_file" ] && [ -s "$result_file" ] || continue
+  result_line="$(sed 's/^[[:space:]]*//' "$result_file")"
+  IFS=$'\t' read -r status repo value index_path <<< "$result_line"
   if [ "$status" = OK ]; then
     log "测速通过：$repo，索引：$index_path，速度：${value}B/s；tmux/proot-distro 包池完整"
     printf '%s\t%s\n' "$repo" "$value" >> "$ranked"
