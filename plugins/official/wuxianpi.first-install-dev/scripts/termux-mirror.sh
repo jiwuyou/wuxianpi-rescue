@@ -200,7 +200,9 @@ final_apt_log="$tmp_dir/apt-final.log"
 log "最终源验证：$best_repo"
 if ! timeout -k 2 15 env DEBIAN_FRONTEND=noninteractive apt-get \
   -o Acquire::Retries=0 -o Acquire::http::Timeout=10 \
-  -o Acquire::https::Timeout=10 update > "$final_apt_log" 2>&1; then
+  -o Acquire::https::Timeout=10 \
+  -o Dir::Etc::sourcelist="$sources_file" \
+  -o Dir::Etc::sourceparts=- update > "$final_apt_log" 2>&1; then
   restore_sources "$sources_file" "$original_sources"
   log "最终源 APT 验证失败：$best_repo"
   tail -n 5 "$final_apt_log" | sed 's/^/[WuxianPi mirror] apt: /' | tee -a "$LOG_FILE" || true

@@ -58,7 +58,7 @@
       "kind": "tool",
       "tool": "execute_termux_command",
       "arguments": {
-        "command": "set -eu; export PREFIX=\"${PREFIX:-/data/data/com.termux/files/usr}\"; export PATH=\"$PREFIX/bin:/system/bin:/system/xbin${PATH:+:$PATH}\"; mkdir -p \"$HOME/.cache/wuxianpi\"; script=\"$HOME/.cache/wuxianpi/termux-mirror-0.1.2.sh\"; curl -fsSL --connect-timeout 10 --max-time 90 https://wuxianpirescue.webefficacy.com/docs/raw/wuxianpi.first-install-dev/0.1.2/scripts/termux-mirror.sh -o \"$script\"; chmod 700 \"$script\"; \"$PREFIX/bin/bash\" \"$script\" --pre-tmux; tmux has-session -t wuxianpi-setup",
+        "command": "set -eu; export PREFIX=\"${PREFIX:-/data/data/com.termux/files/usr}\"; export PATH=\"$PREFIX/bin:/system/bin:/system/xbin${PATH:+:$PATH}\"; mkdir -p \"$HOME/.cache/wuxianpi\"; script=\"$HOME/.cache/wuxianpi/termux-mirror-0.1.3.sh\"; curl -fsSL --connect-timeout 10 --max-time 90 https://wuxianpirescue.webefficacy.com/docs/raw/wuxianpi.first-install-dev/0.1.3/scripts/termux-mirror.sh -o \"$script\"; chmod 700 \"$script\"; \"$PREFIX/bin/bash\" \"$script\" --pre-tmux; tmux has-session -t wuxianpi-setup",
         "working_directory": "$HOME",
         "session_name": "wuxianpi-termux-pre-tmux-dev",
         "yield_time_ms": 1000
