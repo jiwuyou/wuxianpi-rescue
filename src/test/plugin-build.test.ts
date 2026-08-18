@@ -227,6 +227,42 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     assert.doesNotMatch(registrationScript, /RUNTIME_REGISTER|"\$RUNTIME_REGISTER"/);
     assert.doesNotMatch(registrationScript, /LEGACY_COMPONENT_ID|migrate_legacy_component_file/);
 
+    const firstInstallDev = catalog.plugins.find((plugin) => plugin.id === "wuxianpi.first-install-dev");
+    assert.ok(firstInstallDev);
+    assert.equal(firstInstallDev.latestVersion, "0.2.0");
+    const devWorkflow = JSON.parse(await readFile(
+      path.join(ROOT, "plugins", "official", firstInstallDev.id, "workflows", "install.json"),
+      "utf8"
+    ));
+    const devSteps = new Map(
+      devWorkflow.steps.map((step: Record<string, unknown>) => [String(step.id), step])
+    );
+    assert.equal(devSteps.has("handoff-production"), false);
+    for (const requiredStep of [
+      "mirror-and-tmux", "initialize-termux-base", "stage-setup", "market-content",
+      "activate-runtime", "reconcile-preinstalled-packages", "confirm-service-manager-connection",
+      "install-ubuntu", "start-finish-plugin"
+    ]) {
+      assert.ok(devSteps.has(requiredStep), `development first install is missing ${requiredStep}`);
+    }
+    const devMirror = devSteps.get("mirror-and-tmux") as Record<string, any>;
+    assert.match(String(devMirror.arguments.command), /termux-mirror-0\.2\.0\.sh/);
+    const devMarket = devSteps.get("market-content") as Record<string, any>;
+    assert.match(String(devMarket.arguments.command), /resource-sets\/openhouse-core-stack-dev/);
+    assert.match(String(devMarket.arguments.command), /resource-set-compatible\.json/);
+    assert.match(String(devMarket.arguments.command), /openhouse-install-ubuntu.*1\.0\.2/);
+    assert.match(String(devMarket.arguments.command), /openhouse-ubuntu-mirror-policy.*1\.0\.2/);
+    assert.match(String(devMarket.arguments.command), /openhouse-update-ubuntu-packages.*1\.0\.2/);
+    assert.doesNotMatch(String(devMarket.arguments.command), /market_content=unavailable/);
+    assert.ok(
+      devWorkflow.steps.findIndex((step: Record<string, unknown>) => step.id === "mirror-and-tmux") <
+      devWorkflow.steps.findIndex((step: Record<string, unknown>) => step.id === "initialize-termux-base")
+    );
+    assert.ok(
+      devWorkflow.steps.findIndex((step: Record<string, unknown>) => step.id === "market-content") <
+      devWorkflow.steps.findIndex((step: Record<string, unknown>) => step.id === "activate-runtime")
+    );
+
     const resourceUpdate = catalog.plugins.find((plugin) => plugin.id === "wuxianpi.resource-update");
     assert.ok(resourceUpdate);
     assert.equal(resourceUpdate.latestVersion, "4.0.1");

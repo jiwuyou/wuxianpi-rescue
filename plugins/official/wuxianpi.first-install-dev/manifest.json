@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
   "id": "wuxianpi.first-install-dev",
-  "version": "0.1.5",
+  "version": "0.2.0",
   "name": "首次安装开发版",
-  "description": "用于验证公网区域识别、Termux 镜像索引与关键包池、APT 有效性、Ubuntu 网络策略和 tmux 前置准备的开发版首次安装流程。",
+  "description": "完整执行镜像选择、Android 资源投递、开发资源补齐、运行激活、连接保存、Ubuntu 安装和收尾的首次安装开发流程。",
   "category": "setup",
   "minHostVersion": 14,
   "requiredCapabilities": ["setup-tools", "termux", "persistent-terminal"],
-  "tags": ["开发版", "首次安装", "镜像测速", "Termux"],
+  "tags": ["开发版", "首次安装", "完整流程", "镜像测速", "Termux"],
   "entryWorkflow": "workflows/install.json",
   "documents": [
     { "path": "docs/guide.md", "title": "开发版首次安装说明" },

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "wuxianpi.first-install-dev.install",
-  "title": "首次安装开发版",
+  "title": "首次安装开发版（完整流程）",
   "executionPolicy": {
     "beforePersistentTermux": "execute_termux_command",
     "afterPersistentTermux": "termux_exec_command",
@@ -58,7 +58,7 @@
       "kind": "tool",
       "tool": "execute_termux_command",
       "arguments": {
-        "command": "set -eu; export PREFIX=\"${PREFIX:-/data/data/com.termux/files/usr}\"; export PATH=\"$PREFIX/bin:/system/bin:/system/xbin${PATH:+:$PATH}\"; mkdir -p \"$HOME/.cache/wuxianpi\"; script=\"$HOME/.cache/wuxianpi/termux-mirror-0.1.5.sh\"; curl -fsSL --connect-timeout 10 --max-time 120 https://wuxianpirescue.webefficacy.com/docs/raw/wuxianpi.first-install-dev/0.1.5/scripts/termux-mirror.sh -o \"$script\"; chmod 700 \"$script\"; \"$PREFIX/bin/bash\" \"$script\" --pre-tmux; tmux has-session -t wuxianpi-setup",
+        "command": "set -eu; export PREFIX=\"${PREFIX:-/data/data/com.termux/files/usr}\"; export PATH=\"$PREFIX/bin:/system/bin:/system/xbin${PATH:+:$PATH}\"; mkdir -p \"$HOME/.cache/wuxianpi\"; script=\"$HOME/.cache/wuxianpi/termux-mirror-0.2.0.sh\"; curl -fsSL --connect-timeout 10 --max-time 120 https://wuxianpirescue.webefficacy.com/docs/raw/wuxianpi.first-install-dev/0.2.0/scripts/termux-mirror.sh -o \"$script\"; chmod 700 \"$script\"; \"$PREFIX/bin/bash\" \"$script\" --pre-tmux; tmux has-session -t wuxianpi-setup",
         "working_directory": "$HOME",
         "session_name": "wuxianpi-termux-pre-tmux-dev",
         "yield_time_ms": 1000
@@ -66,13 +66,195 @@
       "description": "下载并执行开发版在线镜像脚本。脚本完成公网区域识别、按 InRelease 选择索引、关键包池完整性验证、官方/区域源策略、APT 验证、源固定及 tmux 准备；不要替换为裸 pkg update。"
     },
     {
-      "id": "handoff-production",
+      "id": "initialize-termux-base",
+      "kind": "tool",
+      "tool": "termux_exec_command",
+      "arguments": {
+        "command": "set -eu; export PREFIX=\"${PREFIX:-/data/data/com.termux/files/usr}\"; export PATH=\"$PREFIX/bin:/system/bin:/system/xbin${PATH:+:$PATH}\"; updated=0; update_index() { if [ \"$updated\" -eq 0 ]; then pkg update -y; updated=1; fi; }; missing=0; for command in jq curl tar gzip zstd find awk flock pgrep sv service-daemon node npm git; do command -v \"$command\" >/dev/null 2>&1 || missing=1; done; ca_status=\"$(dpkg-query -W -f='${Status}' ca-certificates 2>/dev/null || true)\"; if [ \"$missing\" -ne 0 ] || [ \"$ca_status\" != 'install ok installed' ]; then update_index; DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::=--force-confold install -y bash jq curl ca-certificates tar gzip zstd coreutils findutils gawk util-linux procps termux-services git; fi; node_major=\"$(node -p 'process.versions.node.split(\".\")[0]' 2>/dev/null || printf 0)\"; case \"$node_major\" in ''|*[!0-9]*) node_major=0;; esac; if [ \"$node_major\" -lt 24 ] || ! command -v npm >/dev/null 2>&1; then update_index; if ! DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::=--force-confold install -y nodejs-lts; then DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::=--force-confold install -y nodejs; fi; fi; for command in jq curl tar gzip zstd tmux sv service-daemon node npm git find awk flock pgrep; do command -v \"$command\" >/dev/null 2>&1 || { printf 'missing Termux command: %s\\n' \"$command\" >&2; exit 1; }; done; node_major=\"$(node -p 'process.versions.node.split(\".\")[0]')\"; [ \"$node_major\" -ge 24 ] || { printf 'Node.js >= 24 is required, got %s\\n' \"$(node -v)\" >&2; exit 1; }; mkdir -p \"$HOME/workspace\" \"$HOME/.local/share/openhouseai\" \"$HOME/.local/share/wuxianpi\" \"$PREFIX/var/service\" \"$PREFIX/var/log\" \"$PREFIX/tmp\"",
+        "working_directory": "$HOME",
+        "session_name": "wuxianpi-termux-base",
+        "yield_time_ms": 1000
+      },
+      "description": "第二段基础环境在 tmux 内完成：只安装精确核心依赖、当前 Runtime 必需的 zstd 和 Node.js >=24，不执行 pkg upgrade，不安装 proot-distro。所有依赖和工作目录验证成功前，禁止获取资源。"
+    },
+    {
+      "id": "stage-setup",
+      "kind": "tool",
+      "tool": "start_wuxianpi_setup",
+      "description": "由 Android 宿主从 APK Asset 读取 canonical TAR，通过本机短生命周期 HTTP 投递到 Termux Inbox；Termux 不读取或解包 APK。"
+    },
+    {
+      "id": "run-setup",
+      "kind": "tool-from-result",
+      "tool": "termux_exec_command",
+      "sourceStep": "stage-setup",
+      "description": "执行宿主返回的导入命令，解包已投递的 TAR。归档不完整时只安装其中实际可用资源，不按资源数量拒绝。"
+    },
+    {
+      "id": "verify-local-content",
+      "kind": "poll-tool",
+      "tool": "get_wuxianpi_setup_status",
+      "retryPolicy": {
+        "maxAttempts": 10,
+        "delayMs": 3000,
+        "retryWhen": [
+          "资源导入仍在运行"
+        ]
+      },
+      "description": "等待 Android 投递的 TAR 完成内容导入；只要求 delivery=ready、content=installed，不要求资源数量或运行激活。"
+    },
+    {
+      "id": "market-content",
+      "kind": "tool",
+      "tool": "termux_exec_command",
+      "arguments": {
+        "command": "set -eu; export PREFIX=\"${PREFIX:-/data/data/com.termux/files/usr}\"; export PATH=\"$PREFIX/bin:/system/bin:/system/xbin${PATH:+:$PATH}\"; market='https://wuxianpirescue.webefficacy.com'; root=\"$HOME/.local/share/openhouseai/resource-manager\"; work=\"$root/first-install-dev-market\"; state=\"$root/first-install-dev-market.state\"; rm -rf \"$work\"; mkdir -p \"$work\"; curl -q -fsS --connect-timeout 10 --max-time 30 \"$market/api/v2/resource-sets/openhouse-core-stack-dev\" -o \"$work/catalog.json\"; latest=\"$(jq -r '.latestVersion // empty' \"$work/catalog.json\")\"; [ -n \"$latest\" ]; jq -e --arg version \"$latest\" '.versions[] | select(.version == $version)' \"$work/catalog.json\" >\"$work/resource-set.json\"; jq -e '.guide.title | strings | length > 0' \"$work/resource-set.json\" >/dev/null; jq -r '.guide.markdown' \"$work/resource-set.json\"; jq '.id = \"openhouse-core-stack\"' \"$work/resource-set.json\" >\"$work/resource-set-compatible.json\"; manager=\"$PREFIX/bin/openhouse-resource-manager\"; test -x \"$manager\"; \"$manager\" market --set \"$work/resource-set-compatible.json\" --market-origin \"$market\"; installed=\"$root/installed-set.json\"; jq -e 'any(.resources[]; .id == \"openhouse-install-ubuntu\" and .version == \"1.0.2\") and any(.resources[]; .id == \"openhouse-ubuntu-mirror-policy\" and .version == \"1.0.2\") and any(.resources[]; .id == \"openhouse-update-ubuntu-packages\" and .version == \"1.0.2\")' \"$installed\" >/dev/null; printf 'installed\\n' >\"$state\"; printf 'market_content=installed resource_set=openhouse-core-stack-dev@%s\\n' \"$latest\"",
+        "working_directory": "$HOME",
+        "session_name": "wuxianpi-market-content",
+        "yield_time_ms": 1000
+      },
+      "description": "读取独立的 openhouse-core-stack-dev，只补齐本轮需要验证的开发资源；旧资源管理器只看到临时兼容清单，不修改 Android 投递协议或正式资源集合。"
+    },
+    {
+      "id": "verify-content",
+      "kind": "tool",
+      "tool": "termux_exec_command",
+      "arguments": {
+        "command": "set -eu; export PREFIX=\"${PREFIX:-/data/data/com.termux/files/usr}\"; installed=\"$HOME/.local/share/openhouseai/resource-manager/installed-set.json\"; package_index=\"$HOME/.local/share/openhouseai/distribution-packages/index.json\"; test -s \"$installed\"; jq -e '.schema == 4 and .id == \"openhouse-core-stack\" and (.resources | type == \"array\") and (.resources as $resources | [\"service-manager\",\"openhouse-runtime\",\"wuyou\",\"openhouse-web\",\"openhouse-resource-manager\",\"openhouse-resource-import\",\"wuxianpi-setup\",\"openhouse-install-runtime-components\",\"openhouse-start-smallphone\",\"openhouse-control-plane-start\",\"openhouse-termux-services-env\",\"openhouse-start-service-manager\"] | all(.[]; . as $id | any($resources[]; .id == $id)))' \"$installed\" >/dev/null; jq -e '.schemaVersion == 1 and .distributionId == \"openhouse\" and (.packages | type == \"array\") and (.packages | length > 0)' \"$package_index\" >/dev/null; for file in \"$PREFIX/bin/openhouse-resource-manager\" \"$PREFIX/bin/openhouse-resource-import\" \"$PREFIX/bin/wuxianpi-setup\" \"$PREFIX/bin/openhouse-control-plane-start\" \"$PREFIX/libexec/openhouse/_termux-services-env.sh\" \"$PREFIX/libexec/openhouse/start-service-manager.sh\" \"$PREFIX/libexec/openhouse/bootstrap/50-install-runtime-components.sh\" \"$PREFIX/libexec/openhouse/bootstrap/60-start-smallphone.sh\"; do test -x \"$file\" || { printf 'missing installed script: %s\\n' \"$file\" >&2; exit 1; }; done; printf 'content=installed source=apk+market\\n'",
+        "working_directory": "$HOME",
+        "session_name": "wuxianpi-content-verify",
+        "yield_time_ms": 1000
+      },
+      "description": "按必要核心资源、关键脚本和动态 Package 索引验证 Content 是否足以激活；不检查资源总数，不写死 Package ID，也不启动服务。"
+    },
+    {
+      "id": "ensure-connection-bridge",
+      "kind": "tool",
+      "tool": "ensure_openhouse_connection_bridge",
+      "description": "宿主支持时，在当前维修助手进程启动并验证本地 Bridge，记录 bridgeId；它只绑定 Android 回环端口，不执行 Termux 命令。工具不受支持或端口无法绑定时，继续核心激活，并在后续 direct-connection 步骤直写 Android 私有存储。"
+    },
+    {
+      "id": "activate-runtime",
+      "kind": "tool",
+      "tool": "termux_exec_command",
+      "arguments": {
+        "command": "set -eu; export PREFIX=\"${PREFIX:-/data/data/com.termux/files/usr}\"; mkdir -p \"$PREFIX/var/service\" \"$PREFIX/var/log\" \"$PREFIX/var/lock\"; for file in \"$PREFIX/bin/openhouse-control-plane-start\" \"$PREFIX/libexec/openhouse/start-service-manager.sh\" \"$PREFIX/libexec/openhouse/_termux-services-env.sh\" \"$PREFIX/libexec/openhouse/bootstrap/50-install-runtime-components.sh\" \"$PREFIX/libexec/openhouse/bootstrap/60-start-smallphone.sh\"; do test -x \"$file\" || { printf 'missing activation script: %s\\n' \"$file\" >&2; exit 1; }; test \"$(head -n 1 \"$file\")\" = '#!/data/data/com.termux/files/usr/bin/bash' || { printf 'invalid Termux launcher shebang: %s\\n' \"$file\" >&2; exit 1; }; done; request=\"$HOME/.local/state/wuxianpi-setup/request.json\"; test -s \"$request\" || { printf 'missing setup request: %s\\n' \"$request\" >&2; exit 1; }; bridge_id=\"{{steps.ensure-connection-bridge.bridgeId}}\"; case \"$bridge_id\" in ''|null|*'{{'* ) \"$PREFIX/bin/wuxianpi-setup\" activate --request \"$request\" ;; *) \"$PREFIX/bin/wuxianpi-setup\" activate --request \"$request\" --connection-bridge-id \"$bridge_id\" ;; esac",
+        "working_directory": "$HOME",
+        "session_name": "wuxianpi-runtime-activation",
+        "yield_time_ms": 1000
+      },
+      "description": "独立激活 service-manager 和 WuxianPi；有 bridgeId 时上报 canonical 连接，无 bridgeId 时不得因此失败。激活前校验 env 脚本、50/60 脚本、固定入口和 Termux 绝对 shebang。必须验证带 Token 的服务列表、带 ai layer 的 registry/apply、registry/sync 和 20765。失败不回滚已安装资源。"
+    },
+    {
+      "id": "verify-activation",
+      "kind": "poll-tool",
+      "tool": "get_wuxianpi_setup_status",
+      "retryPolicy": {
+        "maxAttempts": 10,
+        "delayMs": 3000,
+        "retryWhen": [
+          "activation=pending",
+          "service-manager 20087 暂不可达",
+          "registry 同步仍在进行"
+        ]
+      },
+      "description": "要求 activation=ready、canonicalAuthReady、serviceListReady、registryFileReady、registryApiReady 和 wuxianPiHealth 全部为 true。"
+    },
+    {
+      "id": "reconcile-preinstalled-packages",
+      "kind": "tool",
+      "tool": "termux_exec_command",
+      "arguments": {
+        "command": "set -eu; root=\"$HOME/.local/share/openhouseai/distribution-packages\"; test -s \"$root/index.json\"; curl -q -fsS --max-time 30 -X POST http://127.0.0.1:20765/api/web/v1/packages/reconcile-preinstalled -H 'content-type: application/json' >/dev/null; packages=\"$(curl -q -fsS --max-time 10 http://127.0.0.1:20765/api/web/v1/packages)\"; count=0; while IFS= read -r package_id; do [ -n \"$package_id\" ] || continue; count=$((count + 1)); printf '%s' \"$packages\" | jq -e --arg id \"$package_id\" '.data.packages[]? | select(.packageId == $id and .sourceKind == \"preinstalled\" and .sourceStatus == \"ready\")' >/dev/null || { printf 'preinstalled Package not ready: %s\\n' \"$package_id\" >&2; exit 1; }; done < <(jq -r '.packages[]?.packageId' \"$root/index.json\"); [ \"$count\" -gt 0 ]; printf 'preinstalled_packages=%s\\n' \"$count\""
+      },
+      "description": "按发行目录动态发现所有 wuxianpi-package-*，让 Runtime 原子导入并激活；工作流不写死任何包名，也不再通过 skills/install 或手工修改 MCP 配置。"
+    },
+    {
+      "id": "store-service-manager-connection",
+      "kind": "tool",
+      "tool": "store_service_manager_connection",
+      "description": "确认 Termux 已通过 Bridge 写入的 canonical 连接。hasToken=true 才可继续完成 offer 或安装 Ubuntu；否则必须执行后续 direct-connection 恢复步骤。"
+    },
+    {
+      "id": "read-service-manager-connection",
+      "kind": "tool",
+      "tool": "termux_exec_command",
+      "when": "steps.store-service-manager-connection.hasToken != true",
+      "arguments": {
+        "command": "set -eu; export PREFIX=\"${PREFIX:-/data/data/com.termux/files/usr}\"; \"$PREFIX/bin/wuxianpi-setup\" connection-info",
+        "working_directory": "$HOME",
+        "session_name": "wuxianpi-connection-info",
+        "yield_time_ms": 1000
+      },
+      "description": "仅在 Bridge 上报未保存连接时读取 canonical JSON。只将其 serviceManagerBaseUrl 和 token 用于下一步 Android 私有存储写入，不输出到会话正文或日志。"
+    },
+    {
+      "id": "write-service-manager-connection",
+      "kind": "tool",
+      "tool": "write_service_manager_connection",
+      "when": "steps.store-service-manager-connection.hasToken != true",
+      "arguments": {
+        "serviceManagerBaseUrl": "{{steps.read-service-manager-connection.serviceManagerBaseUrl}}",
+        "token": "{{steps.read-service-manager-connection.token}}"
+      },
+      "description": "将上一步 connection-info JSON 中的 serviceManagerBaseUrl 与 token 直接写入 Android 私有存储；不经过 Bridge HTTP。解析或写入失败时停止，不得进入 Ubuntu。"
+    },
+    {
+      "id": "confirm-service-manager-connection",
+      "kind": "tool",
+      "tool": "store_service_manager_connection",
+      "description": "最终确认 Android 私有连接存在且 hasToken=true。失败表示核心运行可用但连接尚未保存，必须停止，不能进入 Ubuntu。"
+    },
+    {
+      "id": "complete-resource-offer",
+      "kind": "tool",
+      "tool": "complete_apk_resource_offer",
+      "when": "steps.confirm-service-manager-connection.hasToken == true",
+      "description": "核心资源和运行激活均通过后，标记当前 APK offer 已完成；Ubuntu 不参与该标记。"
+    },
+    {
+      "id": "install-ubuntu",
+      "kind": "tool",
+      "tool": "termux_exec_command",
+      "when": "steps.confirm-service-manager-connection.hasToken == true",
+      "arguments": {
+        "command": "set -eu; export PREFIX=\"${PREFIX:-/data/data/com.termux/files/usr}\"; if ! command -v proot-distro >/dev/null 2>&1; then pkg update -y; DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::=--force-confold install -y proot-distro; fi; \"$PREFIX/bin/wuxianpi-setup\" ubuntu",
+        "working_directory": "$HOME",
+        "session_name": "wuxianpi-ubuntu",
+        "yield_time_ms": 1000
+      },
+      "description": "只有 Android 私有连接已确认后，最后按需安装 proot-distro，再从市场 bootstrap 安装 Ubuntu rootfs 和基础包。失败时保留全部核心运行环境，并提供单独重试。"
+    },
+    {
+      "id": "verify-ubuntu",
+      "kind": "poll-tool",
+      "tool": "get_wuxianpi_setup_status",
+      "retryPolicy": {
+        "maxAttempts": 10,
+        "delayMs": 3000,
+        "retryWhen": [
+          "Ubuntu 安装仍在运行"
+        ]
+      },
+      "description": "汇总 Ubuntu 后置阶段；Ubuntu 失败不得将已经完成的核心安装改写为失败。"
+    },
+    {
+      "id": "install-finish-plugin",
+      "kind": "tool",
+      "tool": "install_rescue_plugin",
+      "arguments": {
+        "pluginId": "wuxianpi.setup-finish"
+      },
+      "description": "首次安装技术流程已经结束。安装或确认独立的 wuxianpi.setup-finish 收尾插件；此步骤失败不能回滚或否定已经完成的首次安装。"
+    },
+    {
+      "id": "start-finish-plugin",
       "kind": "tool",
       "tool": "start_rescue_plugin_workflow",
       "arguments": {
-        "pluginId": "wuxianpi.first-install"
+        "pluginId": "wuxianpi.setup-finish"
       },
-      "description": "开发版前置验证完成后，交给正式首次安装工作流继续资源、激活、连接和 Ubuntu 阶段。"
+      "description": "启动独立收尾工作流。后续只整理记忆、询问反馈并引导打开 WuxianPi，不重新执行安装。"
     }
   ]
 }
