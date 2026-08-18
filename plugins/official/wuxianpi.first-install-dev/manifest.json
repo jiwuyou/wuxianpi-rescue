@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "id": "wuxianpi.first-install-dev",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "name": "首次安装开发版",
-  "description": "用于验证公网区域识别、Termux 镜像吞吐测速、APT 有效性和 tmux 前置准备的开发版首次安装流程。",
+  "description": "用于验证公网区域识别、Termux 镜像索引与关键包池、APT 有效性、Ubuntu 网络策略和 tmux 前置准备的开发版首次安装流程。",
   "category": "setup",
   "minHostVersion": 14,
   "requiredCapabilities": ["setup-tools", "termux", "persistent-terminal"],

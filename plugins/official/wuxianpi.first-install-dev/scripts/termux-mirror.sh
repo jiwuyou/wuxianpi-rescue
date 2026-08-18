@@ -6,6 +6,8 @@ TERMUX_HOME="${HOME:-/data/data/com.termux/files/home}"
 STATE_DIR="${TERMUX_HOME}/.local/state/wuxianpi-setup/mirror"
 LOG_FILE="${STATE_DIR}/benchmark.log"
 PROFILE_FILE="${STATE_DIR}/profile.json"
+TERMUX_ARCH="$(dpkg --print-architecture)"
+CRITICAL_PACKAGES="tmux proot-distro"
 
 [ "${1:-}" = "--pre-tmux" ] && [ "$#" -eq 1 ] || {
   printf '%s\n' 'usage: wuxianpi-termux-mirror.sh --pre-tmux' >&2
@@ -56,13 +58,98 @@ candidate_rows() {
   fi
 }
 
+inrelease_index_path() {
+  local inrelease="$1" suffix base="main/binary-$TERMUX_ARCH/Packages"
+  for suffix in .gz .xz .bz2 ''; do
+    if awk -v path="$base$suffix" '
+      /^SHA256:/ { in_sha=1; next }
+      in_sha && $3 == path { found=1; exit }
+      in_sha && /^[A-Za-z0-9-]+:/ { in_sha=0 }
+      END { exit(found ? 0 : 1) }
+    ' "$inrelease"; then
+      printf '%s\n' "$base$suffix"
+      return 0
+    fi
+  done
+  return 1
+}
+
+inrelease_sha256() {
+  local inrelease="$1" path="$2"
+  awk -v path="$path" '
+    /^SHA256:/ { in_sha=1; next }
+    in_sha && $3 == path { print $1; exit }
+    in_sha && /^[A-Za-z0-9-]+:/ { in_sha=0 }
+  ' "$inrelease"
+}
+
+decompress_index() {
+  local path="$1" output="$2"
+  case "$path" in
+    *.gz) gzip -dc "$1" > "$output" ;;
+    *.xz) xz -dc "$1" > "$output" ;;
+    *.bz2) bzip2 -dc "$1" > "$output" ;;
+    *) cp "$1" "$output" ;;
+  esac
+}
+
+package_metadata() {
+  local packages_file="$1" package="$2"
+  awk -v wanted="$package" '
+    BEGIN { RS=""; FS="\n" }
+    {
+      found=0; size=""; sha=""; filename=""
+      for (i=1; i<=NF; i++) {
+        if ($i == "Package: " wanted) found=1
+        if ($i ~ /^Size: /) size=substr($i, 7)
+        if ($i ~ /^SHA256: /) sha=substr($i, 9)
+        if ($i ~ /^Filename: /) filename=substr($i, 11)
+      }
+      if (found && size != "" && sha != "" && filename != "") {
+        print size "\t" sha "\t" filename
+        exit
+      }
+    }
+  ' "$packages_file"
+}
+
+verify_package_pool() {
+  local repo="$1" packages_file="$2" artifact_dir="$3" package metadata expected_size expected_sha filename artifact_url artifact status actual_size actual_sha
+  for package in $CRITICAL_PACKAGES; do
+    metadata="$(package_metadata "$packages_file" "$package" || true)"
+    IFS=$'\t' read -r expected_size expected_sha filename <<EOF || true
+$metadata
+EOF
+    if [ -z "${filename:-}" ]; then
+      printf 'FAIL\t%s\tpackage_pool_incomplete:%s_missing\n' "$repo" "$package"
+      return 1
+    fi
+    artifact="$artifact_dir/${package}.deb"
+    artifact_url="${repo%/}/${filename#/}"
+    if ! status="$(curl -fsSL --connect-timeout 4 --max-time 15 \
+      --max-filesize "$expected_size" -o "$artifact" -w '%{http_code}' \
+      "$artifact_url" 2>/dev/null)" || [ "$status" != 200 ]; then
+      printf 'FAIL\t%s\tpackage_pool_incomplete:%s_download\n' "$repo" "$package"
+      return 1
+    fi
+    actual_size="$(wc -c < "$artifact")"
+    actual_sha="$(sha256sum "$artifact" | awk '{print $1}')"
+    if [ "$actual_size" != "$expected_size" ] || [ "$actual_sha" != "$expected_sha" ]; then
+      printf 'FAIL\t%s\tpackage_pool_incomplete:%s_checksum\n' "$repo" "$package"
+      return 1
+    fi
+  done
+  printf '%s\n' "$repo"
+}
+
 probe_repo() {
-  local repo="$1" inrelease status result speed
-  inrelease="$(mktemp "$STATE_DIR/inrelease.XXXXXX")"
+  local repo="$1" work_dir="$2" inrelease status index_path index_sha index_file packages_file result speed
+  local bytes seconds package_result
+  mkdir -p "$work_dir/artifacts"
+  inrelease="$work_dir/InRelease"
   if ! status="$(curl -sSL --connect-timeout 4 --max-time 10 \
     -o "$inrelease" -w '%{http_code}' \
     "$repo/dists/stable/InRelease" 2>/dev/null)"; then
-    rm -f "$inrelease"
     printf 'FAIL\t%s\tinrelease_http_failed\n' "$repo"
     return 0
   fi
@@ -71,32 +158,54 @@ probe_repo() {
     || ! grep -Fxq -- 'Suite: stable' "$inrelease" \
     || ! grep -Fxq -- 'Codename: stable' "$inrelease" \
     || ! grep -Fxq -- '-----BEGIN PGP SIGNATURE-----' "$inrelease"; then
-    rm -f "$inrelease"
     printf 'FAIL\t%s\tinrelease_not_termux_signed\n' "$repo"
     return 0
   fi
-  rm -f "$inrelease"
-  result="$(curl -fsSL --connect-timeout 4 --max-time 10 \
-    --speed-time 5 --speed-limit 1024 -r 0-262143 -o /dev/null \
+  if ! index_path="$(inrelease_index_path "$inrelease")"; then
+    printf 'FAIL\t%s\tpackages_index_not_declared\n' "$repo"
+    return 0
+  fi
+  index_sha="$(inrelease_sha256 "$inrelease" "$index_path")"
+  index_file="$work_dir/$(basename "$index_path")"
+  if ! result="$(curl -fsSL --connect-timeout 4 --max-time 15 \
+    --max-filesize 5242880 -o "$index_file" \
     -w '%{http_code} %{size_download} %{time_total}' \
-    "$repo/dists/stable/main/binary-$(dpkg --print-architecture)/Packages.xz" 2>/dev/null || true)"
+    "$repo/dists/stable/$index_path" 2>/dev/null)"; then
+    printf 'FAIL\t%s\tpackages_download_failed\n' "$repo"
+    return 0
+  fi
   set -- $result
-  if { [ "${1:-}" != 200 ] && [ "${1:-}" != 206 ]; } || [ "${2:-0}" -le 0 ]; then
+  if [ "${1:-}" != 200 ] || [ "${2:-0}" -le 0 ] || [ -z "$index_sha" ]; then
     printf 'FAIL\t%s\tpackages_probe_failed\n' "$repo"
     return 0
   fi
-  speed="$(awk -v bytes="$2" -v seconds="$3" \
+  if [ "$(sha256sum "$index_file" | awk '{print $1}')" != "$index_sha" ]; then
+    printf 'FAIL\t%s\tpackages_checksum_failed\n' "$repo"
+    return 0
+  fi
+  bytes="$2"
+  seconds="$3"
+  speed="$(awk -v bytes="$bytes" -v seconds="$seconds" \
     'BEGIN { if (seconds > 0) printf "%.0f", bytes / seconds; else print 0 }')"
-  if [ "$speed" -le 0 ]; then
-    printf 'FAIL\t%s\tpackages_probe_failed\n' "$repo"
+  packages_file="$work_dir/Packages"
+  if ! decompress_index "$index_file" "$packages_file"; then
+    printf 'FAIL\t%s\tpackages_decompress_failed\n' "$repo"
     return 0
   fi
-  printf 'OK\t%s\t%s\n' "$repo" "$speed"
+  if ! package_result="$(verify_package_pool "$repo" "$packages_file" "$work_dir/artifacts")"; then
+    printf '%s\n' "$package_result"
+    return 0
+  fi
+  printf 'OK\t%s\t%s\t%s\n' "$repo" "$speed" "$index_path"
 }
 
 is_main_repo() {
   [ "$1" = 'https://packages-cf.termux.dev/apt/termux-main' ] \
     || [ "$1" = 'https://packages.termux.dev/apt/termux-main' ]
+}
+
+is_cf_repo() {
+  [ "$1" = 'https://packages-cf.termux.dev/apt/termux-main' ]
 }
 
 apt_validate_repo() {
@@ -126,7 +235,9 @@ restore_sources() {
 
 country="$(detect_country)"
 region="$(region_for_country "$country")"
-log "公网国家：$country；区域候选：$region；包含两个主流基准源"
+network_class=global
+[ "$country" = CN ] && network_class=cn
+log "公网国家：$country；网络策略：$network_class；区域候选：$region；包含两个主流基准源"
 
 tmp_dir="$(mktemp -d "$STATE_DIR/probe.XXXXXX")"
 trap 'rm -rf "$tmp_dir"' EXIT
@@ -144,9 +255,9 @@ ranked="$tmp_dir/ranked"
 : > "$ranked"
 for result_file in "$tmp_dir"/*; do
   [ -s "$result_file" ] || continue
-  IFS=$'\t' read -r status repo value < "$result_file"
+  IFS=$'\t' read -r status repo value index_path < "$result_file"
   if [ "$status" = OK ]; then
-    log "测速通过：$repo，速度：${value}B/s"
+    log "测速通过：$repo，索引：$index_path，速度：${value}B/s；tmux/proot-distro 包池完整"
     printf '%s\t%s\n' "$repo" "$value" >> "$ranked"
   else
     log "候选拒绝：$repo，原因：$value"
@@ -181,6 +292,13 @@ done < <(sort -t $'\t' -k2,2nr "$ranked")
 
 best_repo="$(sort -t $'\t' -k2,2nr "$validated" | head -n 1 | cut -f1)"
 best_speed="$(sort -t $'\t' -k2,2nr "$validated" | head -n 1 | cut -f2)"
+official_cf_usable=false
+while IFS=$'\t' read -r repo speed; do
+  if is_cf_repo "$repo"; then
+    official_cf_usable=true
+    break
+  fi
+done < "$validated"
 main_repo=""
 main_speed=0
 while IFS=$'\t' read -r repo speed; do
@@ -189,11 +307,23 @@ while IFS=$'\t' read -r repo speed; do
     main_speed="$speed"
   fi
 done < "$validated"
-if [ -n "$main_repo" ] && [ "$best_repo" != "$main_repo" ] \
+if [ "$network_class" = global ]; then
+  if [ "$official_cf_usable" = true ]; then
+    best_repo='https://packages-cf.termux.dev/apt/termux-main'
+    best_speed="$(awk -F '\t' '$1 == "https://packages-cf.termux.dev/apt/termux-main" { print $2; exit }' "$validated")"
+    log "海外官方 CF 完整可用，忽略第三方测速优势并固定使用：$best_repo"
+  elif [ -n "$main_repo" ]; then
+    best_repo="$main_repo"
+    best_speed="$main_speed"
+    log "海外官方 CF 不可用，使用第二官方源：$best_repo"
+  else
+    log '海外两个官方源均不可用，使用已验证的区域候选。'
+  fi
+elif [ -n "$main_repo" ] && [ "$best_repo" != "$main_repo" ] \
   && [ "$best_speed" -lt $((main_speed + main_speed / 5)) ]; then
   best_repo="$main_repo"
   best_speed="$main_speed"
-  log "区域源优势不足 20%，使用主流基准源：$best_repo"
+  log "国内区域源优势不足 20%，使用主流基准源：$best_repo"
 fi
 printf 'deb %s stable main\n' "$best_repo" > "$sources_file"
 final_apt_log="$tmp_dir/apt-final.log"
@@ -217,12 +347,12 @@ if [ -L "$chosen_file" ] || [ -f "$chosen_file" ]; then rm -f "$chosen_file"; fi
 [ -e "$chosen_file" ] || ln -s "$selected_file" "$chosen_file"
 
 timestamp="$(date +%s)"
-printf '{"schema":2,"country":"%s","region":"%s","selected":"%s","speedBps":%s,"validated":true,"measuredAt":%s}\n' \
-  "$country" "$region" "$best_repo" "${best_speed:-0}" "$timestamp" > "$PROFILE_FILE"
+printf '{"schema":3,"country":"%s","region":"%s","networkClass":"%s","selected":"%s","officialCfUsable":%s,"speedBps":%s,"validatedPackages":["tmux","proot-distro"],"validated":true,"measuredAt":%s}\n' \
+  "$country" "$region" "$network_class" "$best_repo" "$official_cf_usable" "${best_speed:-0}" "$timestamp" > "$PROFILE_FILE"
 
 DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::=--force-confold install -y tmux
 tmux new-session -d -s wuxianpi-setup "exec \"$PREFIX/bin/bash\" -l" 2>/dev/null || true
 tmux has-session -t wuxianpi-setup
 log "tmux 已准备完成"
-printf 'WUXIANPI_MIRROR_RESULT={"country":"%s","region":"%s","selected":"%s","speedBps":%s,"tmuxReady":true}\n' \
-  "$country" "$region" "$best_repo" "${best_speed:-0}"
+printf 'WUXIANPI_MIRROR_RESULT={"country":"%s","region":"%s","networkClass":"%s","selected":"%s","officialCfUsable":%s,"speedBps":%s,"tmuxReady":true}\n' \
+  "$country" "$region" "$network_class" "$best_repo" "$official_cf_usable" "${best_speed:-0}"
