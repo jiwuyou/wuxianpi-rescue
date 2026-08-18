@@ -58,12 +58,12 @@
       "kind": "tool",
       "tool": "execute_termux_command",
       "arguments": {
-        "command": "set -eu; export PREFIX=\"${PREFIX:-/data/data/com.termux/files/usr}\"; export PATH=\"$PREFIX/bin:/system/bin:/system/xbin${PATH:+:$PATH}\"; mkdir -p \"$HOME/.cache/wuxianpi\"; script=\"$HOME/.cache/wuxianpi/termux-mirror-0.1.1.sh\"; curl -fsSL --connect-timeout 10 --max-time 90 https://wuxianpirescue.webefficacy.com/docs/raw/wuxianpi.first-install-dev/0.1.1/scripts/termux-mirror.sh -o \"$script\"; chmod 700 \"$script\"; \"$PREFIX/bin/bash\" \"$script\" --pre-tmux; tmux has-session -t wuxianpi-setup",
+        "command": "set -eu; export PREFIX=\"${PREFIX:-/data/data/com.termux/files/usr}\"; export PATH=\"$PREFIX/bin:/system/bin:/system/xbin${PATH:+:$PATH}\"; mkdir -p \"$HOME/.cache/wuxianpi\"; script=\"$HOME/.cache/wuxianpi/termux-mirror-0.1.2.sh\"; curl -fsSL --connect-timeout 10 --max-time 90 https://wuxianpirescue.webefficacy.com/docs/raw/wuxianpi.first-install-dev/0.1.2/scripts/termux-mirror.sh -o \"$script\"; chmod 700 \"$script\"; \"$PREFIX/bin/bash\" \"$script\" --pre-tmux; tmux has-session -t wuxianpi-setup",
         "working_directory": "$HOME",
         "session_name": "wuxianpi-termux-pre-tmux-dev",
         "yield_time_ms": 1000
       },
-      "description": "下载并执行开发版在线镜像脚本。脚本完成公网区域识别、区域内测速、源固定和 tmux 准备；不要替换为裸 pkg update。"
+      "description": "下载并执行开发版在线镜像脚本。脚本完成公网区域识别、官方与区域源吞吐测速、InRelease 和 APT 验证、源固定及 tmux 准备；不要替换为裸 pkg update。"
     },
     {
       "id": "handoff-production",
