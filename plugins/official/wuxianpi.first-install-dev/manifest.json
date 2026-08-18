@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "wuxianpi.first-install-dev",
+  "version": "0.1.1",
+  "name": "首次安装开发版",
+  "description": "用于验证公网区域识别、Termux 镜像测速和 tmux 前置准备的开发版首次安装流程。",
+  "category": "setup",
+  "minHostVersion": 14,
+  "requiredCapabilities": ["setup-tools", "termux", "persistent-terminal"],
+  "tags": ["开发版", "首次安装", "镜像测速", "Termux"],
+  "entryWorkflow": "workflows/install.json",
+  "documents": [
+    { "path": "docs/guide.md", "title": "开发版首次安装说明" },
+    { "path": "scripts/termux-mirror.sh", "title": "开发版 Termux 镜像脚本" }
+  ]
+}

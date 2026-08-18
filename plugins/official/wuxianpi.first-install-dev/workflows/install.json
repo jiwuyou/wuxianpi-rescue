@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "id": "wuxianpi.first-install-dev.install",
+  "title": "首次安装开发版",
+  "executionPolicy": {
+    "beforePersistentTermux": "execute_termux_command",
+    "afterPersistentTermux": "termux_exec_command",
+    "longRunningCommands": "termux_exec_command",
+    "serviceLifecycle": "service-manager"
+  },
+  "steps": [
+    {
+      "id": "inspect",
+      "kind": "tool",
+      "tool": "inspect_wuxianpi_setup",
+      "description": "检查宿主、Termux 和命令通道。"
+    },
+    {
+      "id": "prepare-host",
+      "kind": "tool",
+      "tool": "prepare_runtime_host",
+      "description": "准备 Termux bootstrap 和宿主命令通道。"
+    },
+    {
+      "id": "run-command",
+      "kind": "tool",
+      "tool": "request_termux_run_command_permission",
+      "when": "runtimeHost.externalTermux",
+      "description": "检查外部 Termux RUN_COMMAND 权限。"
+    },
+    {
+      "id": "configure-external-apps",
+      "kind": "tool",
+      "tool": "configure_termux_external_apps",
+      "when": "runtimeHost.externalTermux",
+      "description": "按宿主提示完成 Termux 外部命令配置。"
+    },
+    {
+      "id": "reload-termux-settings",
+      "kind": "user-action",
+      "when": "runtimeHost.externalTermux",
+      "description": "等待用户确认已执行 Termux 配置命令。"
+    },
+    {
+      "id": "verify-run-command",
+      "kind": "tool",
+      "tool": "execute_termux_command",
+      "when": "runtimeHost.externalTermux",
+      "arguments": {
+        "command": "set -eu; printf %s wuxianpi-termux-ready",
+        "working_directory": "$HOME",
+        "yield_time_ms": 1000
+      },
+      "description": "确认 Termux 命令通道可用。"
+    },
+    {
+      "id": "mirror-and-tmux",
+      "kind": "tool",
+      "tool": "execute_termux_command",
+      "arguments": {
+        "command": "set -eu; export PREFIX=\"${PREFIX:-/data/data/com.termux/files/usr}\"; export PATH=\"$PREFIX/bin:/system/bin:/system/xbin${PATH:+:$PATH}\"; mkdir -p \"$HOME/.cache/wuxianpi\"; script=\"$HOME/.cache/wuxianpi/termux-mirror-0.1.1.sh\"; curl -fsSL --connect-timeout 10 --max-time 90 https://wuxianpirescue.webefficacy.com/docs/raw/wuxianpi.first-install-dev/0.1.1/scripts/termux-mirror.sh -o \"$script\"; chmod 700 \"$script\"; \"$PREFIX/bin/bash\" \"$script\" --pre-tmux; tmux has-session -t wuxianpi-setup",
+        "working_directory": "$HOME",
+        "session_name": "wuxianpi-termux-pre-tmux-dev",
+        "yield_time_ms": 1000
+      },
+      "description": "下载并执行开发版在线镜像脚本。脚本完成公网区域识别、区域内测速、源固定和 tmux 准备；不要替换为裸 pkg update。"
+    },
+    {
+      "id": "handoff-production",
+      "kind": "tool",
+      "tool": "start_rescue_plugin_workflow",
+      "arguments": {
+        "pluginId": "wuxianpi.first-install"
+      },
+      "description": "开发版前置验证完成后，交给正式首次安装工作流继续资源、激活、连接和 Ubuntu 阶段。"
+    }
+  ]
+}
