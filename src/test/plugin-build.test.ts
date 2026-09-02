@@ -230,7 +230,7 @@ test("builds validated deterministic plugin releases and catalog", async () => {
 
     const firstInstallDev = catalog.plugins.find((plugin) => plugin.id === "wuxianpi.first-install-dev");
     assert.ok(firstInstallDev);
-    assert.equal(firstInstallDev.latestVersion, "0.2.2");
+    assert.equal(firstInstallDev.latestVersion, "0.2.3");
     const devWorkflow = JSON.parse(await readFile(
       path.join(ROOT, "plugins", "official", firstInstallDev.id, "workflows", "install.json"),
       "utf8"
@@ -246,9 +246,29 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     ]) {
       assert.ok(devSteps.has(requiredStep), `development first install is missing ${requiredStep}`);
     }
+    const installBackgroundGuide = devSteps.get("install-background-run-guide") as Record<string, any>;
+    const startBackgroundGuide = devSteps.get("start-background-run-guide") as Record<string, any>;
+    assert.equal(installBackgroundGuide.tool, "install_rescue_plugin");
+    assert.equal(installBackgroundGuide.arguments.pluginId, "wuxianpi.background-run-guide");
+    assert.match(String(installBackgroundGuide.description), /未安装时从生产市场安装最新版本/);
+    assert.equal(startBackgroundGuide.tool, "start_rescue_plugin_workflow");
+    assert.equal(startBackgroundGuide.arguments.pluginId, "wuxianpi.background-run-guide");
+    assert.match(String(startBackgroundGuide.description), /等待用户完成/);
+    assert.ok(
+      devWorkflow.steps.findIndex((step: Record<string, unknown>) => step.id === "prepare-host") <
+      devWorkflow.steps.findIndex((step: Record<string, unknown>) => step.id === "install-background-run-guide")
+    );
+    assert.ok(
+      devWorkflow.steps.findIndex((step: Record<string, unknown>) => step.id === "install-background-run-guide") <
+      devWorkflow.steps.findIndex((step: Record<string, unknown>) => step.id === "start-background-run-guide")
+    );
+    assert.ok(
+      devWorkflow.steps.findIndex((step: Record<string, unknown>) => step.id === "start-background-run-guide") <
+      devWorkflow.steps.findIndex((step: Record<string, unknown>) => step.id === "run-command")
+    );
     const devMirror = devSteps.get("mirror-and-tmux") as Record<string, any>;
-    assert.match(String(devMirror.arguments.command), /termux-mirror-0\.2\.2\.sh/);
-    assert.match(String(devMirror.arguments.command), /wuxianpi\.first-install-dev\/0\.2\.2\/scripts\/termux-mirror\.sh/);
+    assert.match(String(devMirror.arguments.command), /termux-mirror-0\.2\.3\.sh/);
+    assert.match(String(devMirror.arguments.command), /wuxianpi\.first-install-dev\/0\.2\.3\/scripts\/termux-mirror\.sh/);
     const devConfigureExternalApps = devSteps.get("configure-external-apps") as Record<string, any>;
     const devReloadSettings = devSteps.get("reload-termux-settings") as Record<string, any>;
     assert.equal(devConfigureExternalApps.tool, "configure_termux_external_apps");

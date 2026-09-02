@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "wuxianpi.first-install-dev",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "name": "首次安装开发版",
   "description": "完整执行镜像选择、Android 资源投递、开发资源补齐、运行激活、连接保存、Ubuntu 安装和收尾的首次安装开发流程。",
   "category": "setup",
