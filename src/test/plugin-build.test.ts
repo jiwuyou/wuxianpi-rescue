@@ -230,7 +230,7 @@ test("builds validated deterministic plugin releases and catalog", async () => {
 
     const firstInstallDev = catalog.plugins.find((plugin) => plugin.id === "wuxianpi.first-install-dev");
     assert.ok(firstInstallDev);
-    assert.equal(firstInstallDev.latestVersion, "0.2.3");
+    assert.equal(firstInstallDev.latestVersion, "0.2.4");
     const devWorkflow = JSON.parse(await readFile(
       path.join(ROOT, "plugins", "official", firstInstallDev.id, "workflows", "install.json"),
       "utf8"
@@ -267,8 +267,8 @@ test("builds validated deterministic plugin releases and catalog", async () => {
       devWorkflow.steps.findIndex((step: Record<string, unknown>) => step.id === "run-command")
     );
     const devMirror = devSteps.get("mirror-and-tmux") as Record<string, any>;
-    assert.match(String(devMirror.arguments.command), /termux-mirror-0\.2\.3\.sh/);
-    assert.match(String(devMirror.arguments.command), /wuxianpi\.first-install-dev\/0\.2\.3\/scripts\/termux-mirror\.sh/);
+    assert.match(String(devMirror.arguments.command), /termux-mirror-0\.2\.4\.sh/);
+    assert.match(String(devMirror.arguments.command), /wuxianpi\.first-install-dev\/0\.2\.4\/scripts\/termux-mirror\.sh/);
     const devConfigureExternalApps = devSteps.get("configure-external-apps") as Record<string, any>;
     const devReloadSettings = devSteps.get("reload-termux-settings") as Record<string, any>;
     assert.equal(devConfigureExternalApps.tool, "configure_termux_external_apps");

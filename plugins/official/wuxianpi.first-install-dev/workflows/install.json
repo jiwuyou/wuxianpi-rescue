@@ -76,7 +76,7 @@
       "kind": "tool",
       "tool": "execute_termux_command",
       "arguments": {
-        "command": "set -eu; export PREFIX=\"${PREFIX:-/data/data/com.termux/files/usr}\"; export PATH=\"$PREFIX/bin:/system/bin:/system/xbin${PATH:+:$PATH}\"; mkdir -p \"$HOME/.cache/wuxianpi\"; script=\"$HOME/.cache/wuxianpi/termux-mirror-0.2.3.sh\"; curl -fsSL --connect-timeout 10 --max-time 120 https://wuxianpirescue.webefficacy.com/docs/raw/wuxianpi.first-install-dev/0.2.3/scripts/termux-mirror.sh -o \"$script\"; chmod 700 \"$script\"; \"$PREFIX/bin/bash\" \"$script\" --pre-tmux; tmux has-session -t wuxianpi-setup",
+        "command": "set -eu; export PREFIX=\"${PREFIX:-/data/data/com.termux/files/usr}\"; export PATH=\"$PREFIX/bin:/system/bin:/system/xbin${PATH:+:$PATH}\"; mkdir -p \"$HOME/.cache/wuxianpi\"; script=\"$HOME/.cache/wuxianpi/termux-mirror-0.2.4.sh\"; curl -fsSL --connect-timeout 10 --max-time 120 https://wuxianpirescue.webefficacy.com/docs/raw/wuxianpi.first-install-dev/0.2.4/scripts/termux-mirror.sh -o \"$script\"; chmod 700 \"$script\"; \"$PREFIX/bin/bash\" \"$script\" --pre-tmux; tmux has-session -t wuxianpi-setup",
         "working_directory": "$HOME",
         "session_name": "wuxianpi-termux-pre-tmux-dev",
         "yield_time_ms": 1000
@@ -131,7 +131,7 @@
         "session_name": "wuxianpi-market-content",
         "yield_time_ms": 1000
       },
-      "description": "读取并安装独立的 openhouse-core-stack-dev 集合；资源管理器按集合自身 ID 记录开发集合，不修改 Android 投递协议或正式资源集合。"
+      "description": "读取并安装完整的 openhouse-core-stack-dev 开发集合；资源管理器按集合自身 ID 记录开发集合，不修改 Android 投递协议或正式资源集合。"
     },
     {
       "id": "verify-content",
@@ -143,7 +143,7 @@
         "session_name": "wuxianpi-content-verify",
         "yield_time_ms": 1000
       },
-      "description": "按必要核心资源、关键脚本和动态 Package 索引验证 Content 是否足以激活；不检查资源总数，不写死 Package ID，也不启动服务。"
+      "description": "按完整开发集合的必要核心资源、关键脚本和动态 Package 索引验证 Content 是否足以激活；不检查资源总数，不写死 Package ID，也不启动服务。"
     },
     {
       "id": "ensure-connection-bridge",
