@@ -294,7 +294,7 @@ test("builds validated deterministic plugin releases and catalog", async () => {
 
     const backgroundGuide = catalog.plugins.find((plugin) => plugin.id === "wuxianpi.background-run-guide");
     assert.ok(backgroundGuide);
-    assert.equal(backgroundGuide.latestVersion, "1.0.1");
+    assert.equal(backgroundGuide.latestVersion, "1.0.2");
     assert.deepEqual(backgroundGuide.versions[0].manifest.actions.map((action) => action.id), ["background-run-guide"]);
     assert.deepEqual(backgroundGuide.versions[0].manifest.assistantContexts, [
       { path: "prompts/instruction.md", scope: "session", provider: "static" }
@@ -315,6 +315,7 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     assert.doesNotMatch(String(backgroundGuideStep.description), /系统版本/);
     assert.match(String(backgroundGuideStep.description), /```text/);
     assert.match(String(backgroundGuideStep.description), /```/);
+    assert.match(String(backgroundGuideStep.description), /方块符号就是复制按钮/);
     const backgroundGuideDoc = await readFile(
       path.join(ROOT, "plugins", "official", backgroundGuide.id, "docs", "guide.md"),
       "utf8"
@@ -327,6 +328,7 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     );
     assert.match(backgroundGuideInstructions, /Markdown 代码块/);
     assert.match(backgroundGuideInstructions, /复制按钮/);
+    assert.match(backgroundGuideInstructions, /方块符号就是复制按钮/);
 
     const resourceUpdate = catalog.plugins.find((plugin) => plugin.id === "wuxianpi.resource-update");
     assert.ok(resourceUpdate);
