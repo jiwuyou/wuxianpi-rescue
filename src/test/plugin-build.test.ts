@@ -229,7 +229,7 @@ test("builds validated deterministic plugin releases and catalog", async () => {
 
     const firstInstallDev = catalog.plugins.find((plugin) => plugin.id === "wuxianpi.first-install-dev");
     assert.ok(firstInstallDev);
-    assert.equal(firstInstallDev.latestVersion, "0.2.1");
+    assert.equal(firstInstallDev.latestVersion, "0.2.2");
     const devWorkflow = JSON.parse(await readFile(
       path.join(ROOT, "plugins", "official", firstInstallDev.id, "workflows", "install.json"),
       "utf8"
@@ -246,7 +246,15 @@ test("builds validated deterministic plugin releases and catalog", async () => {
       assert.ok(devSteps.has(requiredStep), `development first install is missing ${requiredStep}`);
     }
     const devMirror = devSteps.get("mirror-and-tmux") as Record<string, any>;
-    assert.match(String(devMirror.arguments.command), /termux-mirror-0\.2\.1\.sh/);
+    assert.match(String(devMirror.arguments.command), /termux-mirror-0\.2\.2\.sh/);
+    assert.match(String(devMirror.arguments.command), /wuxianpi\.first-install-dev\/0\.2\.2\/scripts\/termux-mirror\.sh/);
+    const devConfigureExternalApps = devSteps.get("configure-external-apps") as Record<string, any>;
+    const devReloadSettings = devSteps.get("reload-termux-settings") as Record<string, any>;
+    assert.equal(devConfigureExternalApps.tool, "configure_termux_external_apps");
+    assert.match(String(devConfigureExternalApps.description), /一次性复制下面的全部命令/);
+    assert.match(String(devConfigureExternalApps.description), /切换到 Termux，粘贴后点击键盘上的换行键执行/);
+    assert.match(String(devReloadSettings.description), /将复制的全部命令粘贴到 Termux/);
+    assert.match(String(devReloadSettings.description), /点击键盘上的换行键执行/);
     const devMarket = devSteps.get("market-content") as Record<string, any>;
     assert.match(String(devMarket.arguments.command), /resource-sets\/openhouse-core-stack-dev/);
     assert.doesNotMatch(String(devMarket.arguments.command), /resource-set-compatible\.json/);

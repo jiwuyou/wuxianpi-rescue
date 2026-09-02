@@ -33,13 +33,13 @@
       "kind": "tool",
       "tool": "configure_termux_external_apps",
       "when": "runtimeHost.externalTermux",
-      "description": "按宿主提示完成 Termux 外部命令配置。"
+      "description": "请点击下方右上角的复制按钮，一次性复制下面的全部命令。切换到 Termux，粘贴后点击键盘上的换行键执行。"
     },
     {
       "id": "reload-termux-settings",
       "kind": "user-action",
       "when": "runtimeHost.externalTermux",
-      "description": "等待用户确认已执行 Termux 配置命令。"
+      "description": "等待用户将复制的全部命令粘贴到 Termux，并点击键盘上的换行键执行后返回。"
     },
     {
       "id": "verify-run-command",
@@ -58,7 +58,7 @@
       "kind": "tool",
       "tool": "execute_termux_command",
       "arguments": {
-        "command": "set -eu; export PREFIX=\"${PREFIX:-/data/data/com.termux/files/usr}\"; export PATH=\"$PREFIX/bin:/system/bin:/system/xbin${PATH:+:$PATH}\"; mkdir -p \"$HOME/.cache/wuxianpi\"; script=\"$HOME/.cache/wuxianpi/termux-mirror-0.2.1.sh\"; curl -fsSL --connect-timeout 10 --max-time 120 https://wuxianpirescue.webefficacy.com/docs/raw/wuxianpi.first-install-dev/0.2.1/scripts/termux-mirror.sh -o \"$script\"; chmod 700 \"$script\"; \"$PREFIX/bin/bash\" \"$script\" --pre-tmux; tmux has-session -t wuxianpi-setup",
+        "command": "set -eu; export PREFIX=\"${PREFIX:-/data/data/com.termux/files/usr}\"; export PATH=\"$PREFIX/bin:/system/bin:/system/xbin${PATH:+:$PATH}\"; mkdir -p \"$HOME/.cache/wuxianpi\"; script=\"$HOME/.cache/wuxianpi/termux-mirror-0.2.2.sh\"; curl -fsSL --connect-timeout 10 --max-time 120 https://wuxianpirescue.webefficacy.com/docs/raw/wuxianpi.first-install-dev/0.2.2/scripts/termux-mirror.sh -o \"$script\"; chmod 700 \"$script\"; \"$PREFIX/bin/bash\" \"$script\" --pre-tmux; tmux has-session -t wuxianpi-setup",
         "working_directory": "$HOME",
         "session_name": "wuxianpi-termux-pre-tmux-dev",
         "yield_time_ms": 1000
