@@ -1,16 +1,33 @@
 {
   "schemaVersion": 1,
   "id": "wuxianpi.first-install-dev",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "name": "首次安装开发版",
-  "description": "使用当前正式资源集合验证镜像选择、Android 资源投递、运行激活、连接保存、Ubuntu 安装和收尾的下一版首次安装流程。",
+  "description": "使用当前正式资源集合验证下一版首次安装流程，并在验证通过后直接提升为正式首次安装插件。",
   "category": "setup",
   "minHostVersion": 14,
   "requiredCapabilities": ["setup-tools", "termux", "persistent-terminal"],
   "tags": ["开发版", "首次安装", "完整流程", "镜像测速", "Termux"],
   "entryWorkflow": "workflows/install.json",
+  "assistantContexts": [
+    { "path": "prompts/control-plane-triage.md", "scope": "session", "provider": "static" }
+  ],
+  "actions": [
+    {
+      "id": "first-install",
+      "title": "完成首次安装",
+      "icon": "download",
+      "priority": 100,
+      "prompt": "请根据当前设备的真实状态完成 WuxianPi 首次安装；先读取首次安装开发插件说明和工作流，已经完成的步骤应验证后跳过。",
+      "visibleWhen": "always",
+      "requiresPlugins": ["wuxianpi.first-install-dev"]
+    }
+  ],
   "documents": [
-    { "path": "docs/guide.md", "title": "开发版首次安装说明" },
-    { "path": "scripts/termux-mirror.sh", "title": "开发版 Termux 镜像脚本" }
+    { "path": "docs/guide.md", "title": "首次安装说明" },
+    { "path": "scripts/termux-mirror.sh", "title": "Termux 镜像测速脚本" },
+    { "path": "scripts/openhouse-control-plane-start", "title": "Android-Termux 固定入口" },
+    { "path": "scripts/start-service-manager.sh", "title": "Termux service-manager 启动脚本" },
+    { "path": "scripts/register-openhouse-component.sh", "title": "OpenHouse 桌面组件注册脚本" }
   ]
 }

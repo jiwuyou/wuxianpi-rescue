@@ -230,7 +230,11 @@ test("builds validated deterministic plugin releases and catalog", async () => {
 
     const firstInstallDev = catalog.plugins.find((plugin) => plugin.id === "wuxianpi.first-install-dev");
     assert.ok(firstInstallDev);
-    assert.equal(firstInstallDev.latestVersion, "0.2.5");
+    assert.equal(firstInstallDev.latestVersion, "0.2.6");
+    assert.deepEqual(firstInstallDev.versions[0].manifest.assistantContexts, [
+      { path: "prompts/control-plane-triage.md", scope: "session", provider: "static" }
+    ]);
+    assert.deepEqual(firstInstallDev.versions[0].manifest.actions.map((action) => action.id), ["first-install"]);
     const devWorkflow = JSON.parse(await readFile(
       path.join(ROOT, "plugins", "official", firstInstallDev.id, "workflows", "install.json"),
       "utf8"
@@ -240,7 +244,7 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     );
     assert.equal(devSteps.has("handoff-production"), false);
     for (const requiredStep of [
-      "mirror-and-tmux", "initialize-termux-base", "stage-setup", "market-content",
+      "persistent-terminal", "initialize-termux-base", "stage-setup", "market-content",
       "activate-runtime", "reconcile-preinstalled-packages", "confirm-service-manager-connection",
       "install-ubuntu", "start-finish-plugin"
     ]) {
@@ -266,9 +270,12 @@ test("builds validated deterministic plugin releases and catalog", async () => {
       devWorkflow.steps.findIndex((step: Record<string, unknown>) => step.id === "start-background-run-guide") <
       devWorkflow.steps.findIndex((step: Record<string, unknown>) => step.id === "run-command")
     );
-    const devMirror = devSteps.get("mirror-and-tmux") as Record<string, any>;
-    assert.match(String(devMirror.arguments.command), /termux-mirror-0\.2\.5\.sh/);
-    assert.match(String(devMirror.arguments.command), /wuxianpi\.first-install-dev\/0\.2\.5\/scripts\/termux-mirror\.sh/);
+    const devMirror = devSteps.get("persistent-terminal") as Record<string, any>;
+    const devMarket = devSteps.get("market-content") as Record<string, any>;
+    assert.match(String(devMirror.arguments.command), /termux-mirror-0\.2\.6\.sh/);
+    assert.match(String(devMirror.arguments.command), /wuxianpi\.first-install-dev\/0\.2\.6\/scripts\/termux-mirror\.sh/);
+    assert.match(String(devMarket.arguments.command), /market_install\(\)/);
+    assert.match(String(devMarket.arguments.command), /market_content=unavailable/);
     const devConfigureExternalApps = devSteps.get("configure-external-apps") as Record<string, any>;
     const devReloadSettings = devSteps.get("reload-termux-settings") as Record<string, any>;
     assert.equal(devConfigureExternalApps.tool, "configure_termux_external_apps");
@@ -276,14 +283,13 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     assert.match(String(devConfigureExternalApps.description), /切换到 Termux，粘贴后点击键盘上的换行键执行/);
     assert.match(String(devReloadSettings.description), /将复制的全部命令粘贴到 Termux/);
     assert.match(String(devReloadSettings.description), /点击键盘上的换行键执行/);
-    const devMarket = devSteps.get("market-content") as Record<string, any>;
     assert.match(String(devMarket.arguments.command), /resource-sets\/openhouse-core-stack/);
     assert.doesNotMatch(String(devMarket.arguments.command), /resource-set-compatible\.json/);
     assert.match(String(devMarket.arguments.command), /--set \"\$work\/resource-set\.json\"/);
     assert.match(String(devMarket.arguments.command), /\.id == \"openhouse-core-stack\"/);
-    assert.doesNotMatch(String(devMarket.arguments.command), /market_content=unavailable/);
+    assert.match(String(devMarket.arguments.command), /market_content=unavailable/);
     assert.ok(
-      devWorkflow.steps.findIndex((step: Record<string, unknown>) => step.id === "mirror-and-tmux") <
+      devWorkflow.steps.findIndex((step: Record<string, unknown>) => step.id === "persistent-terminal") <
       devWorkflow.steps.findIndex((step: Record<string, unknown>) => step.id === "initialize-termux-base")
     );
     assert.ok(

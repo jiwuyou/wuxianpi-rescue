@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "wuxianpi.first-install-dev.install",
-  "title": "首次安装开发版（完整流程）",
+  "title": "首次安装开发版（下一版候选）",
   "executionPolicy": {
     "beforePersistentTermux": "execute_termux_command",
     "afterPersistentTermux": "termux_exec_command",
@@ -13,13 +13,13 @@
       "id": "inspect",
       "kind": "tool",
       "tool": "inspect_wuxianpi_setup",
-      "description": "检查宿主、Termux 和命令通道。"
+      "description": "检查宿主、Termux、命令权限和核心安装状态。SAF 不属于首次安装前置。"
     },
     {
       "id": "prepare-host",
       "kind": "tool",
       "tool": "prepare_runtime_host",
-      "description": "准备 Termux bootstrap 和宿主命令通道。"
+      "description": "准备 Termux bootstrap 和宿主命令通道；已完成时跳过。"
     },
     {
       "id": "install-background-run-guide",
@@ -44,7 +44,7 @@
       "kind": "tool",
       "tool": "request_termux_run_command_permission",
       "when": "runtimeHost.externalTermux",
-      "description": "检查外部 Termux RUN_COMMAND 权限。"
+      "description": "仅检查 RUN_COMMAND Android 权限。未授权时显示延迟卡片并暂停；只有用户点击后才可打开权限页。"
     },
     {
       "id": "configure-external-apps",
@@ -69,19 +69,19 @@
         "working_directory": "$HOME",
         "yield_time_ms": 1000
       },
-      "description": "确认 Termux 命令通道可用。"
+      "description": "仅在用户确认执行三行配置命令后运行无副作用探针；exitCode=0 且 stdout 去除首尾空白后等于 wuxianpi-termux-ready 才继续，不投递资源。"
     },
     {
-      "id": "mirror-and-tmux",
+      "id": "persistent-terminal",
       "kind": "tool",
       "tool": "execute_termux_command",
       "arguments": {
-        "command": "set -eu; export PREFIX=\"${PREFIX:-/data/data/com.termux/files/usr}\"; export PATH=\"$PREFIX/bin:/system/bin:/system/xbin${PATH:+:$PATH}\"; mkdir -p \"$HOME/.cache/wuxianpi\"; script=\"$HOME/.cache/wuxianpi/termux-mirror-0.2.5.sh\"; curl -fsSL --connect-timeout 10 --max-time 120 https://wuxianpirescue.webefficacy.com/docs/raw/wuxianpi.first-install-dev/0.2.5/scripts/termux-mirror.sh -o \"$script\"; chmod 700 \"$script\"; \"$PREFIX/bin/bash\" \"$script\" --pre-tmux; tmux has-session -t wuxianpi-setup",
+        "command": "set -eu; export PREFIX=\"${PREFIX:-/data/data/com.termux/files/usr}\"; export PATH=\"$PREFIX/bin:/system/bin:/system/xbin${PATH:+:$PATH}\"; mkdir -p \"$HOME/.cache/wuxianpi\"; script=\"$HOME/.cache/wuxianpi/termux-mirror-0.2.6.sh\"; curl -fsSL --connect-timeout 10 --max-time 120 https://wuxianpirescue.webefficacy.com/docs/raw/wuxianpi.first-install-dev/0.2.6/scripts/termux-mirror.sh -o \"$script\"; chmod 700 \"$script\"; \"$PREFIX/bin/bash\" \"$script\" --pre-tmux; tmux has-session -t wuxianpi-setup",
         "working_directory": "$HOME",
-        "session_name": "wuxianpi-termux-pre-tmux-dev",
+        "session_name": "wuxianpi-termux-pre-tmux",
         "yield_time_ms": 1000
       },
-      "description": "下载并执行开发版在线镜像脚本。脚本完成公网区域识别、按 InRelease 选择索引、关键包池完整性验证、官方/区域源策略、APT 验证、源固定及 tmux 准备；不要替换为裸 pkg update。"
+      "description": "第一段基础环境：先按公网区域和包池完整性选择 Termux 镜像，再安装 tmux；使用正确展开的 Termux PATH 创建并验证持久 tmux 会话。不要替换为裸 pkg update。"
     },
     {
       "id": "initialize-termux-base",
@@ -126,12 +126,12 @@
       "kind": "tool",
       "tool": "termux_exec_command",
       "arguments": {
-        "command": "set -eu; export PREFIX=\"${PREFIX:-/data/data/com.termux/files/usr}\"; export PATH=\"$PREFIX/bin:/system/bin:/system/xbin${PATH:+:$PATH}\"; market='https://wuxianpirescue.webefficacy.com'; root=\"$HOME/.local/share/openhouseai/resource-manager\"; work=\"$root/first-install-dev-market\"; state=\"$root/first-install-dev-market.state\"; rm -rf \"$work\"; mkdir -p \"$work\"; curl -q -fsS --connect-timeout 10 --max-time 30 \"$market/api/v2/resource-sets/openhouse-core-stack\" -o \"$work/catalog.json\"; latest=\"$(jq -r '.latestVersion // empty' \"$work/catalog.json\")\"; [ -n \"$latest\" ]; jq -e --arg version \"$latest\" '.versions[] | select(.version == $version)' \"$work/catalog.json\" >\"$work/resource-set.json\"; jq -e '.guide.title | strings | length > 0' \"$work/resource-set.json\" >/dev/null; jq -r '.guide.markdown' \"$work/resource-set.json\"; manager=\"$PREFIX/bin/openhouse-resource-manager\"; test -x \"$manager\"; \"$manager\" market --set \"$work/resource-set.json\" --market-origin \"$market\"; installed=\"$root/installed-set.json\"; jq -e --slurpfile expected \"$work/resource-set.json\" '.id == \"openhouse-core-stack\" and all($expected[0].resources[]; . as $expectedResource | any(.resources[]; .id == $expectedResource.id and .version == $expectedResource.version and .sha256 == $expectedResource.sha256))' \"$installed\" >/dev/null; printf 'installed\\n' >\"$state\"; printf 'market_content=installed resource_set=openhouse-core-stack@%s\\n' \"$latest\"",
+        "command": "set -u; export PREFIX=\"${PREFIX:-/data/data/com.termux/files/usr}\"; export PATH=\"$PREFIX/bin:/system/bin:/system/xbin${PATH:+:$PATH}\"; market='https://wuxianpirescue.webefficacy.com'; root=\"$HOME/.local/share/openhouseai/resource-manager\"; work=\"$root/first-install-market\"; state=\"$root/first-install-market.state\"; rm -rf \"$work\"; mkdir -p \"$work\"; market_install() ( set -eu; curl -q -fsS --connect-timeout 10 --max-time 30 \"$market/api/v2/resource-sets/openhouse-core-stack\" -o \"$work/catalog.json\"; latest=\"$(jq -r '.latestVersion // empty' \"$work/catalog.json\")\"; [ -n \"$latest\" ]; jq -e --arg version \"$latest\" '.versions[] | select(.version == $version)' \"$work/catalog.json\" >\"$work/resource-set.json\"; jq -e '.guide.title | strings | length > 0' \"$work/resource-set.json\" >/dev/null; jq -r '.guide.markdown' \"$work/resource-set.json\"; manager=\"$PREFIX/bin/openhouse-resource-manager\"; test -x \"$manager\" || { printf 'local resource manager is missing after Android delivery\\n' >&2; exit 2; }; \"$manager\" market --set \"$work/resource-set.json\" --market-origin \"$market\"; installed=\"$root/installed-set.json\"; jq -e --slurpfile expected \"$work/resource-set.json\" '.id == \"openhouse-core-stack\" and all($expected[0].resources[]; . as $expectedResource | any(.resources[]; .id == $expectedResource.id and .version == $expectedResource.version and .sha256 == $expectedResource.sha256))' \"$installed\" >/dev/null; printf 'installed\\n' >\"$state\"; printf 'market_content=installed resource_set=openhouse-core-stack@%s\\n' \"$latest\" ); if market_install; then printf 'installed\\n' >\"$state\"; printf 'market_content=installed\\n'; else code=$?; printf 'unavailable\\n' >\"$state\"; printf 'market_content=unavailable market_exit=%s\\n' \"$code\"; fi",
         "working_directory": "$HOME",
         "session_name": "wuxianpi-market-content",
         "yield_time_ms": 1000
       },
-      "description": "读取并安装当前 promoted 的完整 openhouse-core-stack 正式集合，作为下一版正式首次安装流程的验证基线；不修改 Android 投递协议。"
+      "description": "Android TAR 导入后读取 promoted 的 openhouse-core-stack 集合和指南，直接调用投递的本地资源管理器；仅缺失、版本变化或 SHA 变化的资源由资源管理器下载并校验，市场不可用时保留本地内容并记录 unavailable。"
     },
     {
       "id": "verify-content",
@@ -143,7 +143,7 @@
         "session_name": "wuxianpi-content-verify",
         "yield_time_ms": 1000
       },
-      "description": "按完整正式集合的必要核心资源、关键脚本和动态 Package 索引验证 Content 是否足以激活；不检查资源总数，不写死 Package ID，也不启动服务。"
+      "description": "按必要核心资源、关键脚本和动态 Package 索引验证 Content 是否足以激活；不检查资源总数，不写死 Package ID，也不启动服务。"
     },
     {
       "id": "ensure-connection-bridge",
