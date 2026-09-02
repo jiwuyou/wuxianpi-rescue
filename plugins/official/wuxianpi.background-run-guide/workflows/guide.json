@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "wuxianpi.background-run-guide.guide",
+  "title": "后台运行设置指导",
+  "executionPolicy": {
+    "serviceLifecycle": "none"
+  },
+  "steps": [
+    {
+      "id": "show-background-run-guide",
+      "kind": "user-action",
+      "description": "首次安装前，请先为当前安装包对应的应用开启后台运行。你可以在浏览器中使用 Google 或百度搜索：\n\n荣耀手机怎么打开应用的后台运行权限\n\n也可以向豆包、DeepSeek 或 ChatGPT 提问。请只按当前安装包对应的一项处理：All-in-One 只需为 OpenHouse All-in-One 开启后台运行；Native 请分别为 Termux 和 OpenHouse Native 开启后台运行。建议同时查找电池不受限制、自启动或关闭系统自动管理等选项。完成后返回 OpenHouse 并确认继续。"
+    }
+  ]
+}

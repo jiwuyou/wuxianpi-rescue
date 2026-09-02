@@ -23,7 +23,8 @@ test("builds validated deterministic plugin releases and catalog", async () => {
       "wuxianpi.session-runtime",
       "wuxianpi.openhouse-small-app-guide",
       "wuxianpi.service-manager",
-      "wuxianpi.setup-finish"
+      "wuxianpi.setup-finish",
+      "wuxianpi.background-run-guide"
     ]) {
     assert.ok(pluginIds.has(requiredId), `missing required plugin ${requiredId}`);
     }
@@ -269,6 +270,32 @@ test("builds validated deterministic plugin releases and catalog", async () => {
       devWorkflow.steps.findIndex((step: Record<string, unknown>) => step.id === "market-content") <
       devWorkflow.steps.findIndex((step: Record<string, unknown>) => step.id === "activate-runtime")
     );
+    assert.equal(devSteps.has("prepare-background-execution"), false);
+
+    const backgroundGuide = catalog.plugins.find((plugin) => plugin.id === "wuxianpi.background-run-guide");
+    assert.ok(backgroundGuide);
+    assert.equal(backgroundGuide.latestVersion, "1.0.0");
+    assert.deepEqual(backgroundGuide.versions[0].manifest.actions.map((action) => action.id), ["background-run-guide"]);
+    const backgroundGuideWorkflow = JSON.parse(await readFile(
+      path.join(ROOT, "plugins", "official", backgroundGuide.id, "workflows", "guide.json"),
+      "utf8"
+    ));
+    const backgroundGuideStep = backgroundGuideWorkflow.steps.find(
+      (step: Record<string, unknown>) => step.id === "show-background-run-guide"
+    );
+    assert.equal(backgroundGuideStep.kind, "user-action");
+    assert.match(String(backgroundGuideStep.description), /荣耀手机怎么打开应用的后台运行权限/);
+    assert.match(String(backgroundGuideStep.description), /Google 或百度/);
+    assert.match(String(backgroundGuideStep.description), /豆包、DeepSeek 或 ChatGPT/);
+    assert.match(String(backgroundGuideStep.description), /All-in-One.*OpenHouse All-in-One/);
+    assert.match(String(backgroundGuideStep.description), /Native.*Termux.*OpenHouse Native/);
+    assert.doesNotMatch(String(backgroundGuideStep.description), /系统版本/);
+    const backgroundGuideDoc = await readFile(
+      path.join(ROOT, "plugins", "official", backgroundGuide.id, "docs", "guide.md"),
+      "utf8"
+    );
+    assert.match(backgroundGuideDoc, /荣耀手机怎么打开应用的后台运行权限/);
+    assert.match(backgroundGuideDoc, /电池不受限制/);
 
     const resourceUpdate = catalog.plugins.find((plugin) => plugin.id === "wuxianpi.resource-update");
     assert.ok(resourceUpdate);
