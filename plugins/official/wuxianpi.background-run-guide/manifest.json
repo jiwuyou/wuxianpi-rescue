@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "wuxianpi.background-run-guide",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "name": "后台运行指导",
   "description": "引导用户查询并完成 Android 应用后台运行、电池和自启动设置，不申请系统权限或自动修改系统设置。",
   "category": "setup",
@@ -18,6 +18,13 @@
       "prompt": "请启动并完整执行 wuxianpi.background-run-guide；先展示适合浏览器搜索的简短问题和适合豆包、DeepSeek、ChatGPT 的详细问题，再按当前 APK 类型说明需要设置哪些应用，等待用户完成后结束。不要申请系统权限，不要自动修改系统设置。",
       "visibleWhen": "always",
       "requiresPlugins": ["wuxianpi.background-run-guide"]
+    }
+  ],
+  "assistantContexts": [
+    {
+      "path": "prompts/instruction.md",
+      "scope": "session",
+      "provider": "static"
     }
   ],
   "documents": [

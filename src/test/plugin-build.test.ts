@@ -294,8 +294,11 @@ test("builds validated deterministic plugin releases and catalog", async () => {
 
     const backgroundGuide = catalog.plugins.find((plugin) => plugin.id === "wuxianpi.background-run-guide");
     assert.ok(backgroundGuide);
-    assert.equal(backgroundGuide.latestVersion, "1.0.0");
+    assert.equal(backgroundGuide.latestVersion, "1.0.1");
     assert.deepEqual(backgroundGuide.versions[0].manifest.actions.map((action) => action.id), ["background-run-guide"]);
+    assert.deepEqual(backgroundGuide.versions[0].manifest.assistantContexts, [
+      { path: "prompts/instruction.md", scope: "session", provider: "static" }
+    ]);
     const backgroundGuideWorkflow = JSON.parse(await readFile(
       path.join(ROOT, "plugins", "official", backgroundGuide.id, "workflows", "guide.json"),
       "utf8"
@@ -307,15 +310,23 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     assert.match(String(backgroundGuideStep.description), /荣耀手机怎么打开应用的后台运行权限/);
     assert.match(String(backgroundGuideStep.description), /Google 或百度/);
     assert.match(String(backgroundGuideStep.description), /豆包、DeepSeek 或 ChatGPT/);
-    assert.match(String(backgroundGuideStep.description), /All-in-One.*OpenHouse All-in-One/);
-    assert.match(String(backgroundGuideStep.description), /Native.*Termux.*OpenHouse Native/);
+    assert.match(String(backgroundGuideStep.description), /All-in-One[\s\S]*OpenHouse All-in-One/);
+    assert.match(String(backgroundGuideStep.description), /Native[\s\S]*Termux[\s\S]*OpenHouse Native/);
     assert.doesNotMatch(String(backgroundGuideStep.description), /系统版本/);
+    assert.match(String(backgroundGuideStep.description), /```text/);
+    assert.match(String(backgroundGuideStep.description), /```/);
     const backgroundGuideDoc = await readFile(
       path.join(ROOT, "plugins", "official", backgroundGuide.id, "docs", "guide.md"),
       "utf8"
     );
     assert.match(backgroundGuideDoc, /荣耀手机怎么打开应用的后台运行权限/);
     assert.match(backgroundGuideDoc, /电池不受限制/);
+    const backgroundGuideInstructions = await readFile(
+      path.join(ROOT, "plugins", "official", backgroundGuide.id, "prompts", "instruction.md"),
+      "utf8"
+    );
+    assert.match(backgroundGuideInstructions, /Markdown 代码块/);
+    assert.match(backgroundGuideInstructions, /复制按钮/);
 
     const resourceUpdate = catalog.plugins.find((plugin) => plugin.id === "wuxianpi.resource-update");
     assert.ok(resourceUpdate);
