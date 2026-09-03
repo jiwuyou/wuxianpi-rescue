@@ -1,6 +1,6 @@
 # WuxianPi 首次安装
 
-`wuxianpi.first-install 1.0.30` 使用当前正式资源集合执行首次安装。它会先安装并启动 `wuxianpi.background-run-guide`，等待后台运行设置完成后，再将权限准备、公网镜像测速、Android 资源投递、市场差异补齐、运行激活和 Ubuntu 安装拆成独立阶段。技术流程结束后单独启动 `wuxianpi.setup-finish` 收尾插件。后续阶段失败不会删除已经完成的前序阶段。
+`wuxianpi.first-install 1.0.29` 将权限准备、公网镜像测速、Android 资源投递、市场差异补齐、运行激活和 Ubuntu 安装拆成独立阶段。技术流程结束后单独启动 `wuxianpi.setup-finish` 收尾插件。后续阶段失败不会删除已经完成的前序阶段。
 
 第一段先下载并执行 `scripts/termux-mirror.sh`，根据公网出口国家测试两个 Termux 官方源和对应区域候选源。脚本从 `InRelease` 读取实际索引格式，校验索引 SHA-256、`tmux` 和 `proot-distro` 的实际 `.deb` 包池，并通过真实 `apt-get update` 后固定合格源。海外完整可用时优先使用官方源；中国大陆区域源只有比最快官方源至少快 20% 才会优先。测速日志位于 `$HOME/.local/state/wuxianpi-setup/mirror/benchmark.log`，选择结果位于 `$HOME/.local/state/wuxianpi-setup/mirror/profile.json`。
 
@@ -22,7 +22,7 @@ Termux 运行中枢入口固定为 `$PREFIX/bin/openhouse-control-plane-start`�
 外部 Termux 必须严格按以下顺序处理：
 
 1. 检查 Android `RUN_COMMAND` 权限。未授权时展示延迟卡片；只有用户点击后才打开权限页。
-2. 展示固定的 Termux 配置命令。请点击下方命令区域右上角的复制按钮，一次性复制下面的全部命令；切换到 Termux，粘贴后点击键盘上的换行键执行，等待用户在 Termux 中完整执行：
+2. 展示固定的 Termux 配置命令，等待用户在 Termux 中完整执行：
 
    ```sh
    mkdir -p ~/.termux

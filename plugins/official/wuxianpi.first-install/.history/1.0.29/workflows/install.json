@@ -22,24 +22,6 @@
       "description": "准备 Termux bootstrap 和宿主命令通道；已完成时跳过。"
     },
     {
-      "id": "install-background-run-guide",
-      "kind": "tool",
-      "tool": "install_rescue_plugin",
-      "arguments": {
-        "pluginId": "wuxianpi.background-run-guide"
-      },
-      "description": "确保后台运行指导插件可用；已经安装时直接复用，未安装时从生产市场安装最新版本。"
-    },
-    {
-      "id": "start-background-run-guide",
-      "kind": "tool",
-      "tool": "start_rescue_plugin_workflow",
-      "arguments": {
-        "pluginId": "wuxianpi.background-run-guide"
-      },
-      "description": "先启动后台运行指导插件。等待用户完成对应应用的后台运行设置并返回确认后，才能继续首次安装。"
-    },
-    {
       "id": "run-command",
       "kind": "tool",
       "tool": "request_termux_run_command_permission",
@@ -51,13 +33,13 @@
       "kind": "tool",
       "tool": "configure_termux_external_apps",
       "when": "runtimeHost.externalTermux",
-      "description": "请点击下方右上角的复制按钮，一次性复制下面的全部命令。切换到 Termux，粘贴后点击键盘上的换行键执行。"
+      "description": "显示三行 Termux 命令卡片。用户必须在 Termux 执行 mkdir、allow-external-apps 和 termux-reload-settings 后返回。不得使用 SAF 写配置。"
     },
     {
       "id": "reload-termux-settings",
       "kind": "user-action",
       "when": "runtimeHost.externalTermux",
-      "description": "等待用户将复制的全部命令粘贴到 Termux，并点击键盘上的换行键执行后返回。"
+      "description": "等待用户明确在 Termux 中执行完三行配置命令（包括 termux-reload-settings）并返回。打开 Termux 不等于配置已生效。"
     },
     {
       "id": "verify-run-command",
@@ -76,7 +58,7 @@
       "kind": "tool",
       "tool": "execute_termux_command",
       "arguments": {
-        "command": "set -eu; export PREFIX=\"${PREFIX:-/data/data/com.termux/files/usr}\"; export PATH=\"$PREFIX/bin:/system/bin:/system/xbin${PATH:+:$PATH}\"; mkdir -p \"$HOME/.cache/wuxianpi\"; script=\"$HOME/.cache/wuxianpi/termux-mirror-1.0.30.sh\"; curl -fsSL --connect-timeout 10 --max-time 120 https://wuxianpirescue.webefficacy.com/docs/raw/wuxianpi.first-install/1.0.30/scripts/termux-mirror.sh -o \"$script\"; chmod 700 \"$script\"; \"$PREFIX/bin/bash\" \"$script\" --pre-tmux; tmux has-session -t wuxianpi-setup",
+        "command": "set -eu; export PREFIX=\"${PREFIX:-/data/data/com.termux/files/usr}\"; export PATH=\"$PREFIX/bin:/system/bin:/system/xbin${PATH:+:$PATH}\"; mkdir -p \"$HOME/.cache/wuxianpi\"; script=\"$HOME/.cache/wuxianpi/termux-mirror-1.0.29.sh\"; curl -fsSL --connect-timeout 10 --max-time 120 https://wuxianpirescue.webefficacy.com/docs/raw/wuxianpi.first-install/1.0.29/scripts/termux-mirror.sh -o \"$script\"; chmod 700 \"$script\"; \"$PREFIX/bin/bash\" \"$script\" --pre-tmux; tmux has-session -t wuxianpi-setup",
         "working_directory": "$HOME",
         "session_name": "wuxianpi-termux-pre-tmux",
         "yield_time_ms": 1000

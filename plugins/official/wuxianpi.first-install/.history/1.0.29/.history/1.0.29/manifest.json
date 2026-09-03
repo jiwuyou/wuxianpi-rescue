@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "wuxianpi.first-install",
-  "version": "1.0.30",
+  "version": "1.0.29",
   "name": "首次安装",
   "description": "完整执行公网镜像测速、Termux 两段初始化、Android 资源投递、市场差异补齐、运行激活、连接保存、Ubuntu 安装和独立收尾流程。",
   "category": "setup",

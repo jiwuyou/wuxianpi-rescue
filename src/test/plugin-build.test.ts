@@ -39,19 +39,21 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     assert.ok(firstInstall);
     assert.deepEqual(
       firstInstall.versions.map((candidate) => candidate.manifest.version),
-      ["1.0.29", "1.0.23", "1.0.21", "1.0.10", "1.0.9", "1.0.8", "1.0.7", "1.0.6", "1.0.5", "1.0.4", "1.0.3", "1.0.2", "1.0.1", "1.0.0"]
+      ["1.0.30", "1.0.29", "1.0.23", "1.0.21", "1.0.10", "1.0.9", "1.0.8", "1.0.7", "1.0.6", "1.0.5", "1.0.4", "1.0.3", "1.0.2", "1.0.1", "1.0.0"]
     );
     assert.equal(firstInstall.versions.find((candidate) => candidate.manifest.version === "1.0.1")?.sha256,
       "0f18af13475719d8b4669a2ed2a3d90c2d4a406488f64a0a0104787a31fd5646");
     assert.equal(firstInstall.versions.find((candidate) => candidate.manifest.version === "1.0.0")?.sha256,
       "791424f96a6d59942e0d8e6ccebe5433fa4fe93e709e80e72fb6b7b30cdbded4");
     const release = firstInstall.versions[0];
-    assert.equal(release.manifest.version, "1.0.29");
+    assert.equal(release.manifest.version, "1.0.30");
     const archive = await readFile(path.join(temporary, "plugins", firstInstall.id, `${release.manifest.version}.zip`));
     assert.equal(archive.subarray(0, 2).toString("binary"), "PK");
     assert.equal(createHash("sha256").update(archive).digest("hex"), release.sha256);
 
     const workflow = JSON.parse(await readFile(path.join(ROOT, "plugins", "official", firstInstall.id, "workflows", "install.json"), "utf8"));
+    assert.equal(workflow.id, "wuxianpi.first-install.install");
+    assert.equal(workflow.title, "初始化 WuxianPi（完整流程）");
     const allowed = new Set([
       "inspect_wuxianpi_setup",
       "prepare_runtime_host",
@@ -73,6 +75,8 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     const stageSetup = workflow.steps.find((step: Record<string, unknown>) => step.id === "stage-setup");
     const runCommand = workflow.steps.find((step: Record<string, unknown>) => step.id === "run-command");
     const runSetup = workflow.steps.find((step: Record<string, unknown>) => step.id === "run-setup");
+    const formalBackgroundInstall = workflow.steps.find((step: Record<string, unknown>) => step.id === "install-background-run-guide");
+    const formalBackgroundStart = workflow.steps.find((step: Record<string, unknown>) => step.id === "start-background-run-guide");
     const initializeBase = workflow.steps.find((step: Record<string, unknown>) => step.id === "initialize-termux-base");
     const marketContent = workflow.steps.find((step: Record<string, unknown>) => step.id === "market-content");
     const verifyContent = workflow.steps.find((step: Record<string, unknown>) => step.id === "verify-content");
@@ -83,6 +87,11 @@ test("builds validated deterministic plugin releases and catalog", async () => {
       { kind: "tool", tool: "start_wuxianpi_setup" }
     );
     assert.equal(stageSetup.when, undefined);
+    assert.equal(formalBackgroundInstall.tool, "install_rescue_plugin");
+    assert.equal(formalBackgroundInstall.arguments.pluginId, "wuxianpi.background-run-guide");
+    assert.equal(formalBackgroundStart.tool, "start_rescue_plugin_workflow");
+    assert.equal(formalBackgroundStart.arguments.pluginId, "wuxianpi.background-run-guide");
+    assert.ok(workflow.steps.indexOf(formalBackgroundStart) < workflow.steps.indexOf(runCommand));
     assert.deepEqual(
       { kind: runSetup.kind, tool: runSetup.tool, sourceStep: runSetup.sourceStep },
       { kind: "tool-from-result", tool: "termux_exec_command", sourceStep: "stage-setup" }
@@ -102,12 +111,17 @@ test("builds validated deterministic plugin releases and catalog", async () => {
     const verifyRunCommand = workflow.steps.find((step: Record<string, unknown>) => step.id === "verify-run-command");
     assert.equal(configureExternalApps.tool, "configure_termux_external_apps");
     assert.equal(reloadSettings.kind, "user-action");
-    assert.match(String(reloadSettings.description), /termux-reload-settings/);
+    assert.match(String(configureExternalApps.description), /一次性复制下面的全部命令/);
+    assert.match(String(configureExternalApps.description), /切换到 Termux，粘贴后点击键盘上的换行键执行/);
+    assert.match(String(reloadSettings.description), /将复制的全部命令粘贴到 Termux/);
+    assert.match(String(reloadSettings.description), /点击键盘上的换行键执行/);
     assert.equal(verifyRunCommand.tool, "execute_termux_command");
     assert.match(String(verifyRunCommand.arguments.command), /printf %s wuxianpi-termux-ready/);
     const persistentTerminal = workflow.steps.find((step: Record<string, unknown>) => step.id === "persistent-terminal");
     assert.equal(persistentTerminal.tool, "execute_termux_command");
     assert.doesNotMatch(String(persistentTerminal.arguments.command), /libncursesw/);
+    assert.match(String(persistentTerminal.arguments.command), /termux-mirror-1\.0\.30\.sh/);
+    assert.match(String(persistentTerminal.arguments.command), /wuxianpi\.first-install\/1\.0\.30\/scripts\/termux-mirror\.sh/);
     assert.match(String(persistentTerminal.arguments.command), /PATH=\"\$PREFIX\/bin/);
     assert.ok(workflow.steps.indexOf(runCommand) < workflow.steps.indexOf(configureExternalApps));
     assert.ok(workflow.steps.indexOf(configureExternalApps) < workflow.steps.indexOf(reloadSettings));

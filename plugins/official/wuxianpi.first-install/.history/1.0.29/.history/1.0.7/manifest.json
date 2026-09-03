@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
   "id": "wuxianpi.first-install",
-  "version": "1.0.30",
+  "version": "1.0.7",
   "name": "首次安装",
-  "description": "完整执行公网镜像测速、Termux 两段初始化、Android 资源投递、市场差异补齐、运行激活、连接保存、Ubuntu 安装和独立收尾流程。",
+  "description": "准备 Termux 和 Ubuntu，通过资源更新器 2.0.0 收敛五个核心资源，并注册 WuxianPi 桌面组件。",
   "category": "setup",
-  "minHostVersion": 14,
+  "minHostVersion": 12,
   "requiredCapabilities": ["setup-tools", "termux", "persistent-terminal"],
-  "tags": ["首次安装", "初始化", "镜像测速", "Termux", "完整流程"],
+  "tags": ["首次安装", "初始化", "Termux"],
   "entryWorkflow": "workflows/install.json",
   "assistantContexts": [
     { "path": "prompts/control-plane-triage.md", "scope": "session", "provider": "static" }
@@ -25,9 +25,6 @@
   ],
   "documents": [
     { "path": "docs/guide.md", "title": "首次安装说明" },
-    { "path": "scripts/termux-mirror.sh", "title": "Termux 镜像测速脚本" },
-    { "path": "scripts/openhouse-control-plane-start", "title": "Android-Termux 固定入口" },
-    { "path": "scripts/start-service-manager.sh", "title": "Termux service-manager 启动脚本" },
     { "path": "scripts/register-openhouse-component.sh", "title": "OpenHouse 桌面组件注册脚本" }
   ]
 }
