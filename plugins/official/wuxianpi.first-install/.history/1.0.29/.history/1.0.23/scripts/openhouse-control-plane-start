@@ -1,2 +1,0 @@
-#!/data/data/com.termux/files/usr/bin/bash
-exec "$PREFIX/libexec/openhouse/start-service-manager.sh"
